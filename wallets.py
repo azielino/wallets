@@ -23,6 +23,17 @@ class Wallet:
         self.wallet_profit = self.get_wallet_profit(self.get_wallet(self.number), self.get_stock())
         self.wallet_perc = round((self.wallet_profit / self.wallet_invest) * 100, 1)
 
+    def set_dol_c(self, y, z):
+        if not y:
+            y = '0'
+        if not z:
+            z = '0'
+        y = int(y)
+        z = int(z)
+        if z >= 0 and z <= 99:
+            if z < 10:
+                z = f'0{z}'
+            return f'{y}.{z}'
 
     def count_wallets(self):
         with os.scandir('investment') as it:
