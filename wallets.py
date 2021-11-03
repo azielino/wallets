@@ -25,15 +25,19 @@ class Wallet:
 
     def set_dol_c(self, y, z):
         if not y:
-            y = '0'
+            y = 0
         if not z:
-            z = '0'
-        y = int(y)
-        z = int(z)
-        if z >= 0 and z <= 99:
-            if z < 10:
-                z = f'0{z}'
-            return f'{y}.{z}'
+            z = 0
+        if int(z) >= 0:
+            y = float(y)
+            if int(z) < 10:
+                z = '0.0' + str(z)
+            elif int(z) > 10:  
+                O_z = '0.' + str(z)
+                z = round(float(O_z), 2)
+                z = str(z)[0 : 4]
+            z = float(z)
+        return str(y + z)
 
     def count_wallets(self):
         with os.scandir('investment') as it:

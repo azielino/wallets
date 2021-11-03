@@ -43,21 +43,40 @@ def create_stock_data():
     ps = request.form.get('price_s')
     pc = request.form.get('price_c')
     q = request.form.get('quantity')
+    w = float(w0.set_dol_c(ps, pc))
     if n:
-        w = float(w0.set_dol_c(ps, pc))
-        obj = StockData(
+        if s not in symbols:
+            return "<h1>Nie ma takiej spółki</H1>"
+        stock = StockData(
             name = n,
             symbol = s,
             price = w,
             quantity = q
             )
-        db.session.add(obj)
+        db.session.add(stock)
         db.session.commit()
+    wallet_n = db.session.query(StockData).filter(StockData.name==n).all()
     context = {
         "stock_date" : w0.stock_date,
-        "symbols" : symbols
+        "symbols" : symbols,
+        "wallet_n" : wallet_n,
+        "number" : n,
+        "symbol" : s,
+        "price" : w,
+        "quantity" : q
     }
     return render_template("wallet.html", context=context)
+
+@app.route("/show_wallets/")
+def show_wallets():
+    wallets = {}
+    for item in db.session.query(StockData).all():
+        wallets[item.name] = db.session.query(StockData).filter(StockData.name==item.name).all()
+    context = {
+        "stock_date" : w0.stock_date,
+        "wallets" : wallets 
+    }
+    return render_template("show.html", context=context)
 
 @app.route("/test/", methods=["GET", "POST"])
 def test():
