@@ -77,7 +77,3 @@ def show_wallets():
         "wallets" : wallets 
     }
     return render_template("show.html", context=context)
-
-@app.route("/test/", methods=["GET", "POST"])
-def test():
-    return render_template("test.html")
