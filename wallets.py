@@ -14,6 +14,7 @@ class Wallet:
         self.number = str(number)
         self.wallets_amount = self.count_wallets()
         self.today = datetime.today()
+        self.act_date = self.actual_date()
         self.stock_date = ''
         self.today_stock_file_name = self.set_stock_file_name()
         self.today_iso = str(datetime.isoweekday(self.today))
@@ -47,6 +48,10 @@ class Wallet:
                 if not entry.name.startswith('.') and entry.is_file():
                     i += 1
         return i
+
+    def actual_date(self):
+        today = datetime.today()
+        return f'{str(today.year)}-{str(today.month)}-{str(today.day)}'
 
     def set_stock_file_name(self):
         if self.api_key:
