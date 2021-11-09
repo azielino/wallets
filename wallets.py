@@ -98,7 +98,7 @@ class Wallet:
                         for i in range(xfive-6, xfive-1):
                             api_url = self.set_api_url(self.symbols_list[i+1])
                             file.write(f'{self.symbols_list[i+1]},{self.get_api(api_url)}\n')
-                        time.sleep(53)
+                        time.sleep(58)
                         continue
                     elif len(self.symbols_list) - nr == 0:
                         for i in range(xfive, len(self.symbols_list)):
