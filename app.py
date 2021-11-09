@@ -93,6 +93,5 @@ def show_wallets():
     }
     return render_template("show.html", context=context)
 
-
-if __name__ == "__main__":
-    app.run()
+if __name__ == '__main__':
+    app.run(debug=True)
