@@ -1,35 +1,12 @@
-from celery import Celery
 from flask import Flask, render_template, request
 from wallets import Wallet
 from flask_sqlalchemy import SQLAlchemy
 
-def make_celery(app):
-    celery = Celery(
-        app.import_name,
-        backend=app.config['CELERY_RESULT_BACKEND'],
-        broker=app.config['CELERY_BROKER_URL']
-    )
-    celery.conf.update(app.config)
-
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery.Task = ContextTask
-    return celery
-
 app = Flask(__name__)
-flask_app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wallets.db'
-flask_app.config.update(
-    CELERY_BROKER_URL='redis://localhost:6379',
-    CELERY_RESULT_BACKEND='redis://localhost:6379'
-)
-
-celery = make_celery(flask_app)
 
 db = SQLAlchemy(app)
+
 
 class StockData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -38,22 +15,30 @@ class StockData(db.Model):
     price = db.Column(db.Float, unique=False, nullable=False)
     quantity = db.Column(db.Integer, unique=False, nullable=False, server_default="", default="")
 
+
 db.create_all()
 
 w0 = Wallet(0,'')
 symbols = w0.symbols_list
 
-@celery.task()
-def update_stock():
-    w0 = Wallet(0,'')
-    if w0.act_date != w0.stock_date:
-        w0 = Wallet(0,'***')
-        return '***'
-    return ''
+@app.route("/")
+def start():
+    return render_template("start.html")
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/login/")
+def login():
+    return render_template("login.html")
+
+@app.route("/rgister/")
+def register():
+    return render_template("register.html")
+
+@app.route("/home/", methods=["GET", "POST"])
 def home():
-    api_key = update_stock()
+    api_key = ''
+    if request.method == "POST":
+        api_key = '***'
+    w0 = Wallet(0,api_key)
     wallets = {}
     for i in range(1, w0.wallets_amount):
         wallets[f'w{i}'] = Wallet(i, api_key)
@@ -107,3 +92,7 @@ def show_wallets():
         "wallets" : wallets 
     }
     return render_template("show.html", context=context)
+
+
+if __name__ == "__main__":
+    app.run()
