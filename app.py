@@ -1,5 +1,4 @@
-from flask import Flask, render_template, redirect, request
-from flask.helpers import url_for
+from flask import Flask, render_template, redirect, url_for, request
 from wallets import Wallet
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
@@ -14,11 +13,9 @@ bcrypt = Bcrypt(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wallets.db'
 app.config['SECRET_KEY'] = 'tojestsekretnyklucz'
 
-
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
-
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -39,12 +36,21 @@ class StockData(db.Model):
     quantity = db.Column(db.Integer, unique=False, nullable=False, server_default="", default="")
 
 
+class UsersWallets(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user = db.Column(db.String(80), unique=False, nullable=False)
+    name = db.Column(db.String(80), unique=False, nullable=False)
+    symbol = db.Column(db.String(20), unique=False, nullable=False)
+    price = db.Column(db.Float, unique=False, nullable=False)
+    quantity = db.Column(db.Integer, unique=False, nullable=False, server_default="", default="")
+
+
 class RegisterForm(FlaskForm):
     username = StringField(validators=[InputRequired(), Length(
-        min=4, max=20)], render_kw={"placeholder": "Username"})
+        min=4, max=20)], render_kw={"placeholder": "Nazwa użytkownika"})
     password = PasswordField(validators=[InputRequired(), Length(
-        min=4, max=20)], render_kw={"placeholder": "Password"})
-    submit = SubmitField("Register")
+        min=4, max=20)], render_kw={"placeholder": "Hasło"})
+    submit = SubmitField("Zarejestruj")
     def validate_username(self, username):
         existing_user_name = User.query.filter_by(
             username=username.data).first()
@@ -55,10 +61,10 @@ class RegisterForm(FlaskForm):
 
 class LoginForm(FlaskForm):
     username = StringField(validators=[InputRequired(), Length(
-        min=4, max=20)], render_kw={"placeholder": "Username"})
+        min=4, max=20)], render_kw={"placeholder": "Nazwa użytkownika"})
     password = PasswordField(validators=[InputRequired(), Length(
-        min=4, max=20)], render_kw={"placeholder": "Password"})
-    submit = SubmitField("Login")
+        min=4, max=20)], render_kw={"placeholder": "Hasło"})
+    submit = SubmitField("Zaloguj")
 
 
 db.create_all()
@@ -67,9 +73,6 @@ w0 = Wallet(0,'')
 symbols = w0.symbols_list
 
 @app.route("/")
-def start():
-    return render_template("start.html")
-
 @app.route("/login/", methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -81,7 +84,7 @@ def login():
                 return redirect(url_for('home'))
     return render_template("login.html", form=form)
 
-@app.route("/rgister/", methods=['GET', 'POST'])
+@app.route("/register/", methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
@@ -113,7 +116,8 @@ def home():
         "wallets_invest" : w0.wallet_invest,
         "wallets_profit" : w0.wallet_profit,
         "wallets_perc" : w0.wallet_perc,
-        "wallets" : wallets
+        "wallets" : wallets,
+        "user" : current_user.username
     }
     return render_template("home.html", context=context)
 
@@ -129,15 +133,16 @@ def create_stock_data():
     if n:
         if s not in symbols:
             return "<h1>Nie ma takiej spółki</H1>"
-        stock = StockData(
+        stock = UsersWallets(
             name = n,
+            user = current_user.username,
             symbol = s,
             price = w,
             quantity = q
             )
         db.session.add(stock)
         db.session.commit()
-    wallet_n = db.session.query(StockData).filter(StockData.name==n).all()
+    wallet_n = UsersWallets.query.filter_by(name=n).all()
     context = {
         "stock_date" : w0.stock_date,
         "symbols" : symbols,
@@ -145,7 +150,8 @@ def create_stock_data():
         "number" : n,
         "symbol" : s,
         "price" : w,
-        "quantity" : q
+        "quantity" : q,
+        "user" : current_user.username
     }
     return render_template("wallet.html", context=context)
 
@@ -153,11 +159,12 @@ def create_stock_data():
 @login_required
 def show_wallets():
     wallets = {}
-    for item in db.session.query(StockData).all():
-        wallets[item.name] = db.session.query(StockData).filter(StockData.name==item.name).all()
+    for item in UsersWallets.query.filter_by(user=current_user.username).all():
+        wallets[item.name] = UsersWallets.query.filter_by(name=item.name).all()
     context = {
         "stock_date" : w0.stock_date,
-        "wallets" : wallets 
+        "wallets" : wallets,
+        "user" : current_user.username
     }
     return render_template("show.html", context=context)
 

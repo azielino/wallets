@@ -9,19 +9,23 @@
         <title>Wallets creation</title>
     </head>
     <body>
-        <header>
-            <div class="container m-2">
-                <div class="row">
-                    <div class="col-6">
-                        <a href="/home/"><h5>powrót</h5></a>
-                        <h1>WALLETS creation</h1>
-                    </div>
-                    <div class="col-6">
-                        <h5>Dane na dzień: {{ context.stock_date }}</h5>
-                    </div>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="{{ url_for('home') }}"><h1>WALLETS creation</h1></a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('home') }}">Powrót</a>
+                        </li>
+                    </ul>
                 </div>
+                <div class="mx-auto" style="width: 1400px;"><h2>Zalogowany: {{ context.user }}</h2></div>
+                <div class="align-items-end">Dane na dzień: {{ context.stock_date }}</div>
             </div>
-        </header>
+        </nav>
         <main>
             <div class="container mt-3">
                 <div class="row">
@@ -36,12 +40,8 @@
                     <div class="col-9">
                         <form action="/create_wallet/" method="POST">
                             <h3><div class="text-bold text-center">Podaj dane do portfela</div></h3>
-                            <label for="sel1" class="form-label">Nazwa porfela</label>
-                            <select class="form-select" id="sel1" name="name">
-                                {% for i in range(1, 22) %}
-                                <option>W{{ i }}</option>
-                                {% endfor %}
-                            </select><br>
+                            <label class="form-label">Nazwa porfela</label><br>
+                            <input class="form-input" type="text" placeholder="Nazwa porfela" name="name"><br><br>
                             <label for="sel2" class="form-label">Symbol spółki</label>
                             <select class="form-select" id="sel2" name="symbol">
                                 {% for item in context.symbols %}
@@ -58,11 +58,29 @@
                             <button class="btn btn-primary btn-sm mt-2" type="submit">Dodaj do portfela</button>
                         </form><br>
                         <div>
-                            <h3>Portfel {{ context.number }}</h3>
-                            {% for item in context.wallet_n %}
-                            <p>{{ item.symbol }} {{ item.price }} {{ item.quantity }}</p>
-                            {% endfor %}
+                            <h4>Użytkownik: {{ context.user }}</h4>
+                            {% if context.number %}
+                                <h4>Portfel: {{ context.number }}</h4><br>
+                            {% endif %}
                         </div>
+                        <table class="table table-borderless text-white">
+                            <thead>
+                              <tr>
+                                <th scope="col">Symbol</th>
+                                <th scope="col">Cena jednej akcji</th>
+                                <th scope="col">Ilość akcji</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in context.wallet_n %}
+                                <tr>
+                                    <th scope="row">{{ item.symbol }}</th>
+                                    <td>{{ item.price }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                          </table>
                     </div>
                 </div>
             </div>

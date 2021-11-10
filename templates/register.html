@@ -9,15 +9,37 @@
     <title>Register</title>
 </head>
 <body>
-    <h4>Rejestracja</h4>
-
-    <form method="POST" action="">
-        {{ form.hidden_tag() }}
-        {{ form.username }}
-        {{ form.password }}
-        {{ form.submit }}
-    </form>
-
-    <a href="{{ url_for('login') }}">Masz już konto? Zaloguj się.</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('login') }}"><h2>WALLETS</h2></a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}">Logowanie</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}">Rejestracja</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="row justify-content-md-center">
+            <div class="col-md-auto">
+                <h4>Rejestracja</h4>
+                <form method="POST" action="/register/">
+                    {{ form.hidden_tag() }}<br>
+                    {{ form.username }}<br><br>
+                    {{ form.password }}<br><br>
+                    {{ form.submit }}
+                </form>
+                <a class="nav-link text-white" href="{{ url_for('login') }}">Masz już konto? Zaloguj się.</a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
