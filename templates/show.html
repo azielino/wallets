@@ -28,10 +28,10 @@
         </nav>
         <main>
             <div class="row">
-                {% for item in context.wallets %}
+                {% for wallet in context.wallets %}
                 <div class="col-4 col-sm-4 mt-3">
                     <div class="container-fluid bg-success bg-opacity-50 rounded">
-                        <h2>Portfel {{ item }}</h2>
+                        <h2>Portfel {{ wallet }}</h2>
                         <table class="table table-borderless text-white">
                             <thead>
                               <tr>
@@ -41,11 +41,11 @@
                               </tr>
                             </thead>
                             <tbody>
-                                {% for object in context.wallets[item] %}
+                                {% for obj in context.wallets[wallet] %}
                                 <tr>
-                                    <th scope="row">{{ object.symbol }}</th>
-                                    <td>{{ object.price }}</td>
-                                    <td>{{ object.quantity }}</td>
+                                    <th scope="row">{{ obj.symbol }}</th>
+                                    <td>{{ obj.price }}</td>
+                                    <td>{{ obj.quantity }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
