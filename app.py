@@ -1,18 +1,18 @@
 from flask import Flask, render_template, redirect, url_for, request
-from wallets import Wallet
+from db_creator import init_db
 from datetime import datetime, timedelta
 import time
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
+import requests
+import csv
+from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
-db = SQLAlchemy(app)
+Users, Stock, UsersActions, db = init_db(app)
 bcrypt = Bcrypt(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wallets.db'
 app.config['SECRET_KEY'] = 'tojestsekretnyklucz'
 
 login_manager = LoginManager()
@@ -21,32 +21,139 @@ login_manager.login_view = "login"
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return Users.query.get(int(user_id))
 
 
-class User(db.Model, UserMixin):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), nullable=False, unique=True)
-    password = db.Column(db.String(80), nullable=False)
+class Wallet:
+    
+    TAX = 0.19
+    COMM_PERC = 0.0038
+    AV_KEY = 'L9D9N4VGYSZN3WNW' # Alpha Vantage API
 
+    def __init__(self, username):
+        self.username = username
+        self.today = datetime.today()
+        self.today_str = self.set_today_str()
+        self.today_iso = str(datetime.isoweekday(datetime.today()))
+        self.stock_date = self.set_stock_date()
+        self.user_symbols = self.set_user_symbols()
+        self.user_wallets = self.set_user_wallets()
 
-class StockData(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.String(20), unique=False, nullable=False)
-    price = db.Column(db.Float, unique=False, nullable=False)
-    data = db.Column(db.String(20), unique=False, nullable=False)
+    def set_today_str(self):
+        today = datetime.today()
+        return f'{str(today.day)}-{str(today.month)}-{str(today.year)}' # format daty DD-MM-YYYY
 
+    def date_value(self, date_str):
+        return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
 
-class UsersWallets(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user = db.Column(db.String(80), unique=False, nullable=False)
-    name = db.Column(db.String(80), unique=False, nullable=False)
-    symbol = db.Column(db.String(20), unique=False, nullable=False)
-    price = db.Column(db.Float, unique=False, nullable=False)
-    quantity = db.Column(db.Integer, unique=False, nullable=False, server_default="", default="")
+    def set_stock_date(self):
+        stock_data = Stock.query.all()
+        if stock_data:
+            date_values = {}
+            for row in stock_data:
+                if row.date == self.today_str:
+                    return row.date
+            for row in stock_data:
+                date_values[self.date_value(row.date)] = row.date
+            return date_values[max(date_values)]
 
+    def download_AV_stock_symbols(self): # Alpha Vantage API
+        CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
+        with requests.Session() as s:
+            download = s.get(CSV_URL)
+            decoded_content = download.content.decode('utf-8')
+            cr = csv.reader(decoded_content.splitlines(), delimiter=',')
+            my_list = list(cr)
+            return [row[0] for row in my_list]
 
-db.create_all()
+    def set_user_symbols(self):
+        user_symbols = set()
+        user_actions = UsersActions.query.filter_by(user=self.username).all()
+        user_symbols = list(set(
+            [action.symbol for action in user_actions if action.symbol not in user_symbols]))
+        return user_symbols
+
+    def set_user_wallets(self):
+        user_wallets_names = set()
+        user_wallets = {}
+        user_actions = UsersActions.query.filter_by(user=self.username).all()
+        user_wallets_names = set(
+            [action.name for action in user_actions if action.name not in user_wallets_names])
+        for name in user_wallets_names:
+            user_wallets[name] = [obj for obj in user_actions if obj.name == name]
+        return user_wallets
+
+    def download_AV_price(self, source): # Alpha Vantage API
+        r = requests.get(source)
+        weekend = {'1': 3, '7': 2}
+        if self.today_iso in weekend:
+            return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(weekend[self.today_iso]))]['4. close']
+        return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(1))]['4. close']
+
+    def update_stock(self):
+        if self.stock_date == self.today_str:
+            stock = Stock.query.filter_by(date=self.stock_date).all()
+            stock_symbols = set()
+            stock_symbols = set([obj.symbol for obj in stock])
+            for symbol in stock_symbols:
+                if symbol in self.user_symbols:
+                    self.user_symbols.remove(symbol)
+        stock = None
+        if self.user_symbols:
+            i = 0
+            for symbol in self.user_symbols:
+                AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={self.AV_KEY}' # Alpha Vantage API
+                price = self.download_AV_price(AV_api_url) # Alpha Vantage API
+                stock = Stock(
+                    symbol = symbol,
+                    price = price,
+                    date = self.today_str
+                    )
+                db.session.add(stock)
+                db.session.commit()
+                i += 1
+                if i % 5 == 0:
+                    time.sleep(58) # Alpha Vantage API
+        return stock
+
+    def get_wallet_values(self, wallet, stock):
+        wallet_income = round(float(), 2)
+        wallet_invest = round(float(), 2)
+        for action in wallet:
+            for obj in stock:
+                if action.symbol == obj.symbol:
+                    invest = float(action.price) * float(action.quantity)
+                    income = float(obj.price) * float(action.quantity)
+                    wallet_invest += invest
+                    wallet_income += income
+        wallet_profit = wallet_income - wallet_invest
+        wallet_profit *= (1 - self.TAX)
+        wallet_profit -= (wallet_income * self.COMM_PERC)
+        wallet_profit = round(wallet_profit, 2)
+        if not wallet_invest:
+            wallet_invest = 1
+        wallet_perc = round((wallet_profit / wallet_invest) * 100, 1)
+        return {
+            'wallet_invest' : round(wallet_invest, 2),
+            'wallet_profit' : wallet_profit,
+            'wallet_perc' : wallet_perc
+        }
+
+    def set_dol_c(self, y, z):
+        if not y:
+            y = 0
+        if not z:
+            z = 0
+        if int(z) >= 0:
+            y = float(y)
+            if int(z) < 10:
+                z = '0.0' + str(z)
+            elif int(z) > 10:  
+                O_z = '0.' + str(z)
+                z = round(float(O_z), 2)
+                z = str(z)[0 : 4]
+            z = float(z)
+        return str(y + z)
 
 
 class RegisterForm(FlaskForm):
@@ -56,7 +163,7 @@ class RegisterForm(FlaskForm):
         min=4, max=20)], render_kw={"placeholder": "Hasło"})
     submit = SubmitField("Zarejestruj")
     def validate_username(self, username):
-        existing_user_name = User.query.filter_by(
+        existing_user_name = Users.query.filter_by(
             username=username.data).first()
         if existing_user_name:
             raise ValidationError(
@@ -76,7 +183,7 @@ class LoginForm(FlaskForm):
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
+        user = Users.query.filter_by(username=form.username.data).first()
         if user:
             if bcrypt.check_password_hash(user.password, form.password.data):
                 login_user(user)
@@ -88,7 +195,7 @@ def register():
     form = RegisterForm()
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.password.data)
-        new_user = User(username=form.username.data, password=hashed_password)
+        new_user = Users(username=form.username.data, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
         return redirect(url_for('login'))
@@ -100,39 +207,22 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-w0 = Wallet(0,'')
-symbols = w0.symbols_list
-
-def date_value(date):
-    return int(date[0:4]) + (int(date[5:7])**3)*10 + int(date[8:])
-
-def set_stock_date():
-    stock_data = StockData.query.all()
-    date_values = {}
-    for row in stock_data:
-        if row.data == w0.act_date:
-            return row.data
-    for row in stock_data:
-        date_values[date_value(row.data)] = row.data
-    return date_values[max(date_values)]
-
 @app.route("/home/", methods=["GET", "POST"])
 @login_required
 def home():
-    api_key = ''
+    cw = Wallet(current_user.username)
     if request.method == "POST":
-        api_key = '***'
-    w0 = Wallet(0,api_key)
-    wallets = {}
-    for i in range(1, w0.wallets_amount):
-        wallets[f'w{i}'] = Wallet(i, api_key)
-    stock_date = set_stock_date()
+        cw.update_stock()
+    stock = Stock.query.filter_by(date=cw.stock_date).all()
+    user_actions = UsersActions.query.filter_by(user=current_user.username).all()
+    wallets_values = {}
+    all_wallets_values = cw.get_wallet_values(user_actions, stock)
+    for name in cw.user_wallets:
+        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock)
     context = {
-        "stock_date" : stock_date,
-        "wallets_invest" : w0.wallet_invest,
-        "wallets_profit" : w0.wallet_profit,
-        "wallets_perc" : w0.wallet_perc,
-        "wallets" : wallets,
+        "stock_date" : cw.stock_date,
+        "all_wallets_values" : all_wallets_values,
+        "wallets_values" : wallets_values,
         "user" : current_user.username
     }
     return render_template("home.html", context=context)
@@ -140,16 +230,15 @@ def home():
 @app.route("/create_wallet/", methods=["GET", "POST"])
 @login_required
 def create_stock_data():
+    cw = Wallet(current_user.username)
     n = request.form.get('name')
     s = request.form.get('symbol')
     ps = request.form.get('price_s')
     pc = request.form.get('price_c')
     q = request.form.get('quantity')
-    w = float(w0.set_dol_c(ps, pc))
+    w = float(cw.set_dol_c(ps, pc))
     if n:
-        if s not in symbols:
-            return "<h1>Nie ma takiej spółki</H1>"
-        investment = UsersWallets(
+        investment = UsersActions(
             name = n,
             user = current_user.username,
             symbol = s,
@@ -158,13 +247,13 @@ def create_stock_data():
             )
         db.session.add(investment)
         db.session.commit()
-    current_user_wallets = UsersWallets.query.filter_by(
+    user_actions = UsersActions.query.filter_by(
         user=current_user.username).all()
-    wallets_n = [wallet for wallet in current_user_wallets if wallet.name == n]
-    stock_date = set_stock_date()
+    wallets_n = [wallet for wallet in user_actions if wallet.name == n]
     context = {
-        "stock_date" : stock_date,
-        "symbols" : symbols,
+        "stock_date" : cw.stock_date,
+        "symbols" : cw.download_AV_stock_symbols(),
+        "user_symbols" : cw.user_symbols,
         "wallet_n" : wallets_n,
         "number" : n,
         "symbol" : s,
@@ -177,43 +266,15 @@ def create_stock_data():
 @app.route("/show_wallets/")
 @login_required
 def show_wallets():
-    symbols = set()
-    wallets = {}
-    current_wallets_names = set()
-    current_user_wallets = UsersWallets.query.filter_by(user=current_user.username).all()
-    current_wallets_names = set(
-        [wallet.name for wallet in current_user_wallets if wallet.name not in current_wallets_names])
-    symbols = list(set(
-        [wallet.symbol for wallet in current_user_wallets if wallet.symbol not in symbols]))
-    for name in current_wallets_names:
-        wallets[name] = [obj for obj in current_user_wallets if obj.name == name]
-    stock_date = set_stock_date()
-    today_stock = StockData.query.filter_by(data=stock_date).all()
-    today_symbols = [obj.symbol for obj in today_stock if today_stock]
-    for symbol in today_symbols:
-        if symbol in symbols:
-            symbols.remove(symbol)
-    if symbols:
-        i = 0
-        for symbol in symbols:
-            api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey=L9D9N4VGYSZN3WNW'
-            price = w0.get_api(api_url)
-            stock = StockData(
-                symbol = symbol,
-                price = price,
-                data = w0.act_date
-                )
-            db.session.add(stock)
-            db.session.commit()
-            i += 1
-            if i % 5 == 0:
-                time.sleep(58)
+    cw = Wallet(current_user.username)
     context = {
-        "stock_date" : stock_date,
-        "wallets" : wallets,
+        "stock_date" : cw.stock_date,
+        "wallets" : cw.user_wallets,
         "user" : current_user.username
     }
     return render_template("show.html", context=context)
+
+# ***********************************************************************************************
 
 if __name__ == '__main__':
     app.run(debug=True)

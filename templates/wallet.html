@@ -29,59 +29,49 @@
         <main>
             <div class="container mt-3">
                 <div class="row">
-                    <div class="col-3">
-                        <h3>Symbole spółek:</h3>
-                        <div class="container mt-3">
+                    <form action="/create_wallet/" method="POST">
+                        <h3><div class="text-bold text-center">Podaj dane do portfela</div></h3>
+                        <label class="form-label">Nazwa porfela</label><br>
+                        <input class="form-input" type="text" placeholder="Nazwa porfela" name="name"><br><br>
+                        <label for="sel2" class="form-label">Symbol spółki</label>
+                        <select class="form-select" id="sel2" name="symbol">
                             {% for item in context.symbols %}
-                            <h5>- {{ item }}</h5>
+                            <option>{{ item }}</option>
                             {% endfor %}
-                        </div>
+                        </select><br>
+                        <label class="form-label">Cena jednej akcji</label>
+                        <div class="input-group">
+                            <input class="form-input" type="number" placeholder="0 $" name="price_s">
+                            <input class="form-input" type="number" placeholder="00 c" name="price_c">
+                        </div><br>
+                        <label class="form-label">Ilość akcji</label><br>
+                        <input class="form-input" type="number" placeholder="Ilość aksji" name="quantity"><br>
+                        <button class="btn btn-primary btn-sm mt-2" type="submit">Dodaj do portfela</button>
+                    </form><br>
+                    <div class='mt-3'>
+                        <h4>Użytkownik: {{ context.user }}</h4>
+                        {% if context.number %}
+                            <h4>Portfel: {{ context.number }}</h4><br>
+                        {% endif %}
                     </div>
-                    <div class="col-9">
-                        <form action="/create_wallet/" method="POST">
-                            <h3><div class="text-bold text-center">Podaj dane do portfela</div></h3>
-                            <label class="form-label">Nazwa porfela</label><br>
-                            <input class="form-input" type="text" placeholder="Nazwa porfela" name="name"><br><br>
-                            <label for="sel2" class="form-label">Symbol spółki</label>
-                            <select class="form-select" id="sel2" name="symbol">
-                                {% for item in context.symbols %}
-                                <option>{{ item }}</option>
-                                {% endfor %}
-                            </select><br>
-                            <label class="form-label">Cena jednej akcji</label>
-                            <div class="input-group">
-                                <input class="form-input" type="number" placeholder="0 $" name="price_s">
-                                <input class="form-input" type="number" placeholder="00 c" name="price_c">
-                            </div><br>
-                            <label class="form-label">Ilość akcji</label><br>
-                            <input class="form-input" type="number" placeholder="Ilość aksji" name="quantity"><br>
-                            <button class="btn btn-primary btn-sm mt-2" type="submit">Dodaj do portfela</button>
-                        </form><br>
-                        <div>
-                            <h4>Użytkownik: {{ context.user }}</h4>
-                            {% if context.number %}
-                                <h4>Portfel: {{ context.number }}</h4><br>
-                            {% endif %}
-                        </div>
-                        <table class="table table-borderless text-white">
-                            <thead>
-                              <tr>
+                    <table class="table table-borderless text-white">
+                        <thead>
+                            <tr>
                                 <th scope="col">Symbol</th>
                                 <th scope="col">Cena jednej akcji</th>
                                 <th scope="col">Ilość akcji</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in context.wallet_n %}
-                                <tr>
-                                    <th scope="row">{{ item.symbol }}</th>
-                                    <td>{{ item.price }}</td>
-                                    <td>{{ item.quantity }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                          </table>
-                    </div>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in context.wallet_n %}
+                            <tr>
+                                <th scope="row">{{ item.symbol }}</th>
+                                <td>{{ item.price }}</td>
+                                <td>{{ item.quantity }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
