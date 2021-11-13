@@ -103,14 +103,18 @@ def logout():
 w0 = Wallet(0,'')
 symbols = w0.symbols_list
 
+def date_value(date):
+    return int(date[0:4]) + (int(date[5:7])**3)*10 + int(date[8:])
+
 def set_stock_date():
     stock_data = StockData.query.all()
+    date_values = {}
     for row in stock_data:
         if row.data == w0.act_date:
             return row.data
     for row in stock_data:
-        pass
-    
+        date_values[date_value(row.data)] = row.data
+    return date_values[max(date_values)]
 
 @app.route("/home/", methods=["GET", "POST"])
 @login_required
@@ -183,7 +187,8 @@ def show_wallets():
         [wallet.symbol for wallet in current_user_wallets if wallet.symbol not in symbols]))
     for name in current_wallets_names:
         wallets[name] = [obj for obj in current_user_wallets if obj.name == name]
-    today_stock = StockData.query.filter_by(data=w0.act_date).all()
+    stock_date = set_stock_date()
+    today_stock = StockData.query.filter_by(data=stock_date).all()
     today_symbols = [obj.symbol for obj in today_stock if today_stock]
     for symbol in today_symbols:
         if symbol in symbols:
@@ -203,7 +208,6 @@ def show_wallets():
             i += 1
             if i % 5 == 0:
                 time.sleep(58)
-    stock_date = set_stock_date()
     context = {
         "stock_date" : stock_date,
         "wallets" : wallets,
