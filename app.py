@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import time
 import requests
 import csv
+import matplotlib.pyplot as plt
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
@@ -28,15 +29,15 @@ class Wallet:
     
     TAX = 0.19
     COMM_PERC = 0.0038
-    AV_KEY = 'L9D9N4VGYSZN3WNW' # Alpha Vantage API
+    AV_KEY = '***' # Alpha Vantage API
 
     def __init__(self, username):
         self.username = username
         self.today = datetime.today()
         self.today_str = self.set_today_str()
         self.today_iso = str(datetime.isoweekday(datetime.today()))
-        self.stock_date = self.set_stock_date()
         self.user_symbols = self.set_user_symbols()
+        self.stock_date = self.set_stock_date()
         self.user_wallets = self.set_user_wallets()
 
     def set_today_str(self):
@@ -47,14 +48,13 @@ class Wallet:
         return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
 
     def set_stock_date(self):
-        stock_data = Stock.query.all()
-        if stock_data:
+        user_stock = Stock.query.filter_by(user=self.username).all()
+        if user_stock:
             date_values = {}
-            for row in stock_data:
-                if row.date == self.today_str:
-                    return row.date
-            for row in stock_data:
-                date_values[self.date_value(row.date)] = row.date
+            for item in user_stock:
+                if item.date == self.today_str:
+                    return item.date
+                date_values[self.date_value(item.date)] = item.date
             return date_values[max(date_values)]
 
     def download_AV_stock_symbols(self): # Alpha Vantage API
@@ -64,14 +64,14 @@ class Wallet:
             decoded_content = download.content.decode('utf-8')
             cr = csv.reader(decoded_content.splitlines(), delimiter=',')
             my_list = list(cr)
+            del my_list[0]
             return [row[0] for row in my_list]
 
     def set_user_symbols(self):
         user_symbols = set()
         user_actions = UsersActions.query.filter_by(user=self.username).all()
-        user_symbols = list(set(
+        return list(set(
             [action.symbol for action in user_actions if action.symbol not in user_symbols]))
-        return user_symbols
 
     def set_user_wallets(self):
         user_wallets_names = set()
@@ -91,14 +91,14 @@ class Wallet:
         return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(1))]['4. close']
 
     def update_stock(self):
-        if self.stock_date == self.today_str:
-            stock = Stock.query.filter_by(date=self.stock_date).all()
-            stock_symbols = set()
-            stock_symbols = set([obj.symbol for obj in stock])
-            for symbol in stock_symbols:
+        today_stock = Stock.query.filter_by(date=self.today_str).all()
+        today_stock_symbols = set()
+        today_stock_symbols = set([obj.symbol for obj in today_stock])
+        if today_stock_symbols:
+            for symbol in today_stock_symbols:
                 if symbol in self.user_symbols:
                     self.user_symbols.remove(symbol)
-        stock = None
+        today_stock = None
         if self.user_symbols:
             i = 0
             for symbol in self.user_symbols:
@@ -107,14 +107,15 @@ class Wallet:
                 stock = Stock(
                     symbol = symbol,
                     price = price,
-                    date = self.today_str
+                    date = self.today_str,
+                    user = self.username
                     )
                 db.session.add(stock)
                 db.session.commit()
                 i += 1
-                if i % 5 == 0:
+                if i % 5 == 0 and i != len(self.user_symbols):
                     time.sleep(58) # Alpha Vantage API
-        return stock
+        return today_stock
 
     def get_wallet_values(self, wallet, stock):
         wallet_income = round(float(), 2)
@@ -127,7 +128,8 @@ class Wallet:
                     wallet_invest += invest
                     wallet_income += income
         wallet_profit = wallet_income - wallet_invest
-        wallet_profit *= (1 - self.TAX)
+        if wallet_profit > 0:
+            wallet_profit *= (1 - self.TAX)
         wallet_profit -= (wallet_income * self.COMM_PERC)
         wallet_profit = round(wallet_profit, 2)
         if not wallet_invest:
@@ -229,7 +231,7 @@ def home():
 
 @app.route("/create_wallet/", methods=["GET", "POST"])
 @login_required
-def create_stock_data():
+def create_wallet():
     cw = Wallet(current_user.username)
     n = request.form.get('name')
     s = request.form.get('symbol')
@@ -250,9 +252,10 @@ def create_stock_data():
     user_actions = UsersActions.query.filter_by(
         user=current_user.username).all()
     wallets_n = [wallet for wallet in user_actions if wallet.name == n]
+    today_symbols = cw.download_AV_stock_symbols()
     context = {
         "stock_date" : cw.stock_date,
-        "symbols" : cw.download_AV_stock_symbols(),
+        "symbols" : today_symbols,
         "user_symbols" : cw.user_symbols,
         "wallet_n" : wallets_n,
         "number" : n,

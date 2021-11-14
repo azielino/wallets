@@ -18,6 +18,7 @@ def init_db(app):
         symbol = db.Column(db.String(20), unique=False, nullable=False)
         price = db.Column(db.Float, unique=False, nullable=False)
         date = db.Column(db.String(20), unique=False, nullable=False)
+        user = db.Column(db.String(20), unique=False, nullable=False)
 
 
     class UsersActions(db.Model):
@@ -26,7 +27,7 @@ def init_db(app):
         name = db.Column(db.String(80), unique=False, nullable=False)
         symbol = db.Column(db.String(20), unique=False, nullable=False)
         price = db.Column(db.Float, unique=False, nullable=False)
-        quantity = db.Column(db.Integer, unique=False, nullable=False, server_default="", default="")
+        quantity = db.Column(db.Integer, unique=False, nullable=False)
 
     
     db.create_all()

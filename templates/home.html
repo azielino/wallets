@@ -39,28 +39,38 @@
                             Całość
                             <h5>{{ context.all_wallets_values.wallet_perc }} %</h5><br>
                             <h2>{{ context.all_wallets_values.wallet_profit }} $</h2><br>
-                            <h5>KAPITAŁ: {{ context.all_wallets_values.wallet_invest }} $</h5>
-                        </div>
-                        <div class="container bg-info bg-opacity-50 rounded">
-                            <h5>PORTFELE</h5>
-                            <a href="/show_wallets/"><h5>Otwórz</h5></a>
-                        </div>
+                            {% if context.all_wallets_values.wallet_invest != 1 %}
+                                <h5>KAPITAŁ: {{ context.all_wallets_values.wallet_invest }} $</h5>
+                            {% else %}
+                                <h5>KAPITAŁ: 0 $</h5>
+                            {% endif %}
+                        </div><br>
                         <div class="container bg-info bg-opacity-50 rounded">
                             <h5>STWÓRZ PORTFEL</h5>
                             <a href="/create_wallet/"><h5>Otwórz</h5></a>
-                        </div>
+                        </div><br>
+                        <div class="container bg-info bg-opacity-50 rounded">
+                            <h5>PORTFELE</h5>
+                            <a href="/show_wallets/"><h5>Otwórz</h5></a>
+                        </div><br>
                     </div>
                     <div class="col-9">
                         <div class="row">
                             {% for name in context.wallets_values %}
-                            <div class="col-4 col-sm-4">
-                                <div class="container-fluid bg-success bg-opacity-50 rounded">
-                                    {{ name }}
-                                    <h5>{{ context.wallets_values[name].wallet_perc }} %</h5><br>
-                                    <h2>{{ context.wallets_values[name].wallet_profit }} $</h2><br>
-                                    <h5>{{ context.wallets_values[name].wallet_invest }} $</h5>
-                                </div>
-                            </div>
+                                {% if context.wallets_values[name].wallet_invest != 1 %}
+                                    <div class="col-4 col-sm-4">
+                                        <div class="container-fluid bg-success bg-opacity-50 rounded">
+                                            {{ name }}
+                                            <h5>{{ context.wallets_values[name].wallet_perc }} %</h5><br>
+                                            <h2>{{ context.wallets_values[name].wallet_profit }} $</h2><br>
+                                            {% if context.wallets_values[name].wallet_invest != 1 %}
+                                                <h5>{{ context.wallets_values[name].wallet_invest }} $</h5>
+                                            {% else %}
+                                                <h5>0 $</h5>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
                             {% endfor %}
                         </div>
                     </div>
