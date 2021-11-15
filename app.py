@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import time
 import requests
 import csv
+import os
 import matplotlib.pyplot as plt
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -34,15 +35,14 @@ class Wallet:
     def __init__(self, username):
         self.username = username
         self.today = datetime.today()
-        self.today_str = self.set_today_str()
+        self.today_str = self.set_date_format(self.today)
         self.today_iso = str(datetime.isoweekday(datetime.today()))
         self.user_symbols = self.set_user_symbols()
         self.stock_date = self.set_stock_date()
         self.user_wallets = self.set_user_wallets()
 
-    def set_today_str(self):
-        today = datetime.today()
-        return f'{str(today.day)}-{str(today.month)}-{str(today.year)}' # format daty DD-MM-YYYY
+    def set_date_format(self, date):
+        return f'{str(date.day)}-{str(date.month)}-{str(date.year)}' # format daty DD-MM-YYYY
 
     def date_value(self, date_str):
         return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
@@ -56,6 +56,7 @@ class Wallet:
                     return item.date
                 date_values[self.date_value(item.date)] = item.date
             return date_values[max(date_values)]
+        return self.today_str
 
     def download_AV_stock_symbols(self): # Alpha Vantage API
         CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
@@ -98,7 +99,6 @@ class Wallet:
             for symbol in today_stock_symbols:
                 if symbol in self.user_symbols:
                     self.user_symbols.remove(symbol)
-        today_stock = None
         if self.user_symbols:
             i = 0
             for symbol in self.user_symbols:
@@ -115,13 +115,12 @@ class Wallet:
                 i += 1
                 if i % 5 == 0 and i != len(self.user_symbols):
                     time.sleep(58) # Alpha Vantage API
-        return today_stock
 
-    def get_wallet_values(self, wallet, stock):
+    def get_wallet_values(self, wallet, stock_by_date):
         wallet_income = round(float(), 2)
         wallet_invest = round(float(), 2)
         for action in wallet:
-            for obj in stock:
+            for obj in stock_by_date:
                 if action.symbol == obj.symbol:
                     invest = float(action.price) * float(action.quantity)
                     income = float(obj.price) * float(action.quantity)
@@ -134,13 +133,31 @@ class Wallet:
         wallet_profit = round(wallet_profit, 2)
         if not wallet_invest:
             wallet_invest = 1
-        wallet_perc = round((wallet_profit / wallet_invest) * 100, 1)
+        try:
+            wallet_perc = round((wallet_profit / wallet_invest) * 100, 1)
+        except ZeroDivisionError:
+            wallet_perc = 0
         return {
             'wallet_invest' : round(wallet_invest, 2),
             'wallet_profit' : wallet_profit,
             'wallet_perc' : wallet_perc
         }
 
+    def get_user_dates(self):
+        stock = Stock.query.all()
+        return [act.date for act in stock if act.symbol == self.user_symbols[0]]
+    
+    def wallet_plot(self, name, wallet):
+        if os.path.exists(f'{name}.jpg'):
+            os.remove(f'{name}.jpg')
+        user_dates = self.get_user_dates()
+        wallet_profits = [0]
+        for date in user_dates:
+            stock_by_date = Stock.query.filter_by(date=date).all()
+            wallet_profits.append(self.get_wallet_values(wallet, stock_by_date)['wallet_profit'])
+        plt.plot(wallet_profits)
+        plt.savefig(f'{name}.jpg')
+        
     def set_dol_c(self, y, z):
         if not y:
             y = 0
@@ -215,12 +232,14 @@ def home():
     cw = Wallet(current_user.username)
     if request.method == "POST":
         cw.update_stock()
-    stock = Stock.query.filter_by(date=cw.stock_date).all()
+        return redirect(url_for('home'))
+    stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
     wallets_values = {}
-    all_wallets_values = cw.get_wallet_values(user_actions, stock)
+    all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
     for name in cw.user_wallets:
-        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock)
+        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
+        cw.wallet_plot(name, cw.user_wallets[f'{name}'])
     context = {
         "stock_date" : cw.stock_date,
         "all_wallets_values" : all_wallets_values,

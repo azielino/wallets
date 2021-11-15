@@ -57,20 +57,18 @@
                     <div class="col-9">
                         <div class="row">
                             {% for name in context.wallets_values %}
-                                {% if context.wallets_values[name].wallet_invest != 1 %}
-                                    <div class="col-4 col-sm-4">
-                                        <div class="container-fluid bg-success bg-opacity-50 rounded">
-                                            {{ name }}
-                                            <h5>{{ context.wallets_values[name].wallet_perc }} %</h5><br>
-                                            <h2>{{ context.wallets_values[name].wallet_profit }} $</h2><br>
-                                            {% if context.wallets_values[name].wallet_invest != 1 %}
-                                                <h5>{{ context.wallets_values[name].wallet_invest }} $</h5>
-                                            {% else %}
-                                                <h5>0 $</h5>
-                                            {% endif %}
-                                        </div>
+                                <div class="col-4 col-sm-4">
+                                    <div class="container-fluid bg-success bg-opacity-50 rounded">
+                                        {{ name }}
+                                        <h5>{{ context.wallets_values[name].wallet_perc }} %</h5><br>
+                                        <h2>{{ context.wallets_values[name].wallet_profit }} $</h2><br>
+                                        {% if context.wallets_values[name].wallet_invest != 1 %}
+                                            <h5>{{ context.wallets_values[name].wallet_invest }} $</h5>
+                                        {% else %}
+                                            <h5>0 $</h5>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
+                                </div>
                             {% endfor %}
                         </div>
                     </div>
