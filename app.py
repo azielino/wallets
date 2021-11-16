@@ -50,24 +50,22 @@ class Wallet:
     def set_stock_date(self):
         stock = Stock.query.all()
         max_date_value = 0
-        max_date_symbols = []
         for item in stock:
             date_value = self.date_value(item.date)
             if date_value >= max_date_value:
                 max_date_value = date_value
-                max_date_symbols.append(item.symbol) # do poprawy
                 stock_date = item.date
-        print(max_date_symbols)
+        max_date_symbols = [item.symbol for item in stock if item.date == stock_date]
         for symbol in self.user_symbols:
-            if symbol in max_date_symbols:
-                print(stock_date)
-                return stock_date
-        user_stock = Stock.query.filter_by(user=self.username).all()
-        if user_stock:
-            date_values = {}
-            for item in user_stock:
-                date_values[self.date_value(item.date)] = item.date
-                return date_values[max(date_values)]
+            if symbol not in max_date_symbols:
+                user_stock = Stock.query.filter_by(user=self.username).all()
+                if user_stock:
+                    date_values = {}
+                    for item in user_stock:
+                        date_values[self.date_value(item.date)] = item.date
+                    return date_values[max(date_values)]
+            continue
+        return stock_date
 
     def download_AV_stock_symbols(self): # Alpha Vantage API
         CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
