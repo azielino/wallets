@@ -48,15 +48,26 @@ class Wallet:
         return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
 
     def set_stock_date(self):
+        stock = Stock.query.all()
+        max_date_value = 0
+        max_date_symbols = []
+        for item in stock:
+            date_value = self.date_value(item.date)
+            if date_value >= max_date_value:
+                max_date_value = date_value
+                max_date_symbols.append(item.symbol) # do poprawy
+                stock_date = item.date
+        print(max_date_symbols)
+        for symbol in self.user_symbols:
+            if symbol in max_date_symbols:
+                print(stock_date)
+                return stock_date
         user_stock = Stock.query.filter_by(user=self.username).all()
         if user_stock:
             date_values = {}
             for item in user_stock:
-                if item.date == self.today_str:
-                    return item.date
                 date_values[self.date_value(item.date)] = item.date
-            return date_values[max(date_values)]
-        return self.today_str
+                return date_values[max(date_values)]
 
     def download_AV_stock_symbols(self): # Alpha Vantage API
         CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
@@ -115,6 +126,8 @@ class Wallet:
                 i += 1
                 if i % 5 == 0 and i != len(self.user_symbols):
                     time.sleep(58) # Alpha Vantage API
+            return True
+        return False
 
     def get_wallet_values(self, wallet, stock_by_date):
         wallet_income = round(float(), 2)
@@ -239,7 +252,7 @@ def home():
     all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
     for name in cw.user_wallets:
         wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-        cw.wallet_plot(name, cw.user_wallets[f'{name}'])
+        # cw.wallet_plot(name, cw.user_wallets[f'{name}'])
     context = {
         "stock_date" : cw.stock_date,
         "all_wallets_values" : all_wallets_values,
