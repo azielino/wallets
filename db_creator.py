@@ -28,6 +28,7 @@ def init_db(app):
         symbol = db.Column(db.String(20), unique=False, nullable=False)
         price = db.Column(db.Float, unique=False, nullable=False)
         quantity = db.Column(db.Integer, unique=False, nullable=False)
+        start_date = db.Column(db.String(12), unique=False, nullable=False)
 
     
     db.create_all()

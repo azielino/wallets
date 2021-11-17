@@ -50,23 +50,24 @@ class Wallet:
 
     def set_stock_date(self):
         stock = Stock.query.all()
-        max_date_value = 0
-        for item in stock:
-            date_value = self.date_value(item.date)
-            if date_value >= max_date_value:
-                max_date_value = date_value
-                stock_date = item.date
-        max_date_symbols = [item.symbol for item in stock if item.date == stock_date]
-        for symbol in self.user_symbols:
-            if symbol not in max_date_symbols:
-                user_stock = Stock.query.filter_by(user=self.username).all()
-                if user_stock:
-                    date_values = {}
-                    for item in user_stock:
-                        date_values[self.date_value(item.date)] = item.date
-                    return date_values[max(date_values)]
-            continue
-        return stock_date
+        if stock:
+            max_date_value = 0
+            for item in stock:
+                date_value = self.date_value(item.date)
+                if date_value >= max_date_value:
+                    max_date_value = date_value
+                    stock_date = item.date
+            max_date_symbols = [item.symbol for item in stock if item.date == stock_date]
+            for symbol in self.user_symbols:
+                if symbol not in max_date_symbols:
+                    user_stock = Stock.query.filter_by(user=self.username).all()
+                    if user_stock:
+                        date_values = {}
+                        for item in user_stock:
+                            date_values[self.date_value(item.date)] = item.date
+                        return date_values[max(date_values)]
+                continue
+            return stock_date
 
     def download_AV_stock_symbols(self): # Alpha Vantage API
         CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
@@ -81,16 +82,19 @@ class Wallet:
     def set_user_symbols(self):
         user_symbols = set()
         user_actions = UsersActions.query.filter_by(user=self.username).all()
-        return list({action.symbol for action in user_actions if action.symbol not in user_symbols})
+        if user_actions:
+            return list({action.symbol for action in user_actions if action.symbol not in user_symbols})
+        return user_symbols
 
     def set_user_wallets(self):
         user_wallets_names = set()
         user_wallets = {}
         user_actions = UsersActions.query.filter_by(user=self.username).all()
-        user_wallets_names = {
-            action.name for action in user_actions if action.name not in user_wallets_names}
-        for name in user_wallets_names:
-            user_wallets[name] = [act for act in user_actions if act.name == name]
+        if user_actions:
+            user_wallets_names = {
+                action.name for action in user_actions if action.name not in user_wallets_names}
+            for name in user_wallets_names:
+                user_wallets[name] = [act for act in user_actions if act.name == name]
         return user_wallets
 
     def download_AV_price(self, source): # Alpha Vantage API
@@ -158,29 +162,20 @@ class Wallet:
         user_dates = list({item.date for item in stock if item.symbol in self.user_symbols})
         return sorted(user_dates)
 
-        # user_stock = [item for item in stock if item.symbol in self.user_symbols]
-        # user_dates = []
-        # for i in range(len(stock)):
-        #     date = datetime.today() - timedelta(i)
-        #     date_str = self.set_date_format(datetime.today() - timedelta(i))
-        #     for act in user_stock:
-        #         if date_str == act.date:
-        #             user_dates.append(date)
-        #             i += 1
-        #             break
-        #     continue
-        # user_dates = [self.set_date_format(date) for date in sorted(user_dates)]
-        # return user_dates
+    def wallet_dates(self, wallet):
+        # start_date_action = UsersActions.query.filter_by(name=wallet).all()
+        #if start_date_action and self.user_dates():
+        return [date for date in self.user_dates() if date >= '18-11-2021']
+        # return []
 
-    def wallet_plot_data(self,wallet):
+    def wallet_plot_data(self, wallet):
         wallet_profits = []
         x_axis = []
-        for date in self.user_dates():
+        for date in self.wallet_dates(wallet):
             stock_by_date = Stock.query.filter_by(date=date).all()
             y = self.get_wallet_values(wallet, stock_by_date)['wallet_profit']
-            if y != 0:
-                wallet_profits.append(y)
-                x_axis.append(date)
+            wallet_profits.append(y)
+            x_axis.append(date)
         y_axis = wallet_profits
         return [x_axis, y_axis]
 
@@ -261,28 +256,28 @@ def home():
         return redirect(url_for('home'))
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
-    wallets_values = {}
-    wallets_plot_data = []
-    all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
-    i = 0
-    for name in cw.user_wallets:
-        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-        wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'])
-        wallets_plot_data.append([i, wallet_plot_data])
-        i += 1
-    if os.path.exists(f'{cw.username}.png'):
-            os.remove(f'{cw.username}.png')
-    if wallets_plot_data[0][1][1]:
-        if len(wallets_plot_data) > 1:
-            fig, ax = plt.subplots(len(cw.user_wallets))
-            for data in wallets_plot_data:
-                ax[data[0]].plot(data[1][0], data[1][1])
-            fig.savefig(f'{cw.username}.png')
-        else:
-            fig = plt.figure()
-            plt.plot(wallets_plot_data[0][1][0], wallets_plot_data[0][1][1])
-            fig.savefig(f'{cw.username}.png')
-            
+    if user_actions:
+        wallets_values = {}
+        wallets_plot_data = []
+        all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
+        i = 0
+        for name in cw.user_wallets:
+            wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
+            wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'])
+            wallets_plot_data.append([i, wallet_plot_data])
+            i += 1
+        if os.path.exists(f'{cw.username}.png'):
+                os.remove(f'{cw.username}.png')
+        if wallets_plot_data:
+            if len(wallets_plot_data) > 1:
+                fig, ax = plt.subplots(len(cw.user_wallets))
+                for data in wallets_plot_data:
+                    ax[data[0]].plot(data[1][0], data[1][1])
+                fig.savefig(f'{cw.username}.png')
+            else:
+                fig = plt.figure()
+                plt.plot(wallets_plot_data[0][1][0], wallets_plot_data[0][1][1])
+                fig.savefig(f'{cw.username}.png')       
     context = {
         "stock_date" : cw.stock_date,
         "all_wallets_values" : all_wallets_values,
@@ -307,7 +302,8 @@ def create_wallet():
             user = current_user.username,
             symbol = s,
             price = w,
-            quantity = q
+            quantity = q,
+            start_date = cw.today_str
             )
         db.session.add(investment)
         db.session.commit()
