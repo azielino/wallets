@@ -6,6 +6,7 @@ import requests
 import csv
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
@@ -157,17 +158,19 @@ class Wallet:
     def get_user_dates(self):
         stock = Stock.query.all()
         return [act.date for act in stock if act.symbol == self.user_symbols[0]]
-    
-    def wallet_plot(self, name, wallet):
-        if os.path.exists(f'{name}.jpg'):
-            os.remove(f'{name}.jpg')
+
+    def get_wallet_symbols(self, wallet_name):
+        wallet_act = UsersActions.query.filter_by(name=wallet_name).all()
+        return {item.symbol for item in wallet_act}
+
+    def wallet_plot_data(self,wallet):
         user_dates = self.get_user_dates()
         wallet_profits = [0]
         for date in user_dates:
             stock_by_date = Stock.query.filter_by(date=date).all()
             wallet_profits.append(self.get_wallet_values(wallet, stock_by_date)['wallet_profit'])
-        plt.plot(wallet_profits)
-        plt.savefig(f'{name}.jpg')
+        return [[x for x in range(len(wallet_profits))], wallet_profits]
+
         
     def set_dol_c(self, y, z):
         if not y:
@@ -247,10 +250,16 @@ def home():
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
     wallets_values = {}
+    wallets_plot_data ={}
     all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
     for name in cw.user_wallets:
         wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-        # cw.wallet_plot(name, cw.user_wallets[f'{name}'])
+        wallets_plot_data[f'{name}'] = cw.wallet_plot_data(cw.user_wallets[f'{name}'])    
+    fig, ax = plt.subplots(2)
+    ax[0].plot(wallets_plot_data['mój 1'][0], wallets_plot_data['mój 1'][1])
+    ax[1].plot(wallets_plot_data['portfel 1'][0], wallets_plot_data['portfel 1'][1])
+    fig.savefig('my_figure.png')
+    print(cw.get_wallet_symbols('mój 1'))
     context = {
         "stock_date" : cw.stock_date,
         "all_wallets_values" : all_wallets_values,
