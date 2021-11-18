@@ -157,21 +157,14 @@ class Wallet:
             'wallet_perc' : wallet_perc
         }
 
-    def user_dates(self):
+    def wallet_plot_data(self, wallet, start_date):
         stock = Stock.query.all()
         user_dates = list({item.date for item in stock if item.symbol in self.user_symbols})
-        return sorted(user_dates)
-
-    def wallet_dates(self, wallet):
-        # start_date_action = UsersActions.query.filter_by(name=wallet).all()
-        #if start_date_action and self.user_dates():
-        return [date for date in self.user_dates() if date >= '18-11-2021']
-        # return []
-
-    def wallet_plot_data(self, wallet):
+        user_dates = sorted(user_dates)
+        wallet_dates = [date for date in user_dates if self.date_value(date) >= self.date_value(start_date)]
         wallet_profits = []
         x_axis = []
-        for date in self.wallet_dates(wallet):
+        for date in wallet_dates:
             stock_by_date = Stock.query.filter_by(date=date).all()
             y = self.get_wallet_values(wallet, stock_by_date)['wallet_profit']
             wallet_profits.append(y)
@@ -187,7 +180,7 @@ class Wallet:
         if int(z) >= 0:
             y = float(y)
             if int(z) < 10:
-                z = '0.0' + str(z)
+                z = '0.0' + str(int(z))
             elif int(z) > 10:  
                 O_z = '0.' + str(z)
                 z = round(float(O_z), 2)
@@ -256,33 +249,31 @@ def home():
         return redirect(url_for('home'))
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
-    if user_actions:
-        wallets_values = {}
-        wallets_plot_data = []
+    all_wallets_values = {}
+    wallets_values = {}
+    wallets_plot_data = []
+    wallets_plots = {}
+    if stock_by_date and user_actions:
         all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
-        i = 0
         for name in cw.user_wallets:
+            if os.path.exists(f'static/{cw.username}_{name}.jpg'):
+                os.remove(f'static/{cw.username}_{name}.jpg')
             wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-            wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'])
-            wallets_plot_data.append([i, wallet_plot_data])
-            i += 1
-        if os.path.exists(f'{cw.username}.png'):
-                os.remove(f'{cw.username}.png')
-        if wallets_plot_data:
-            if len(wallets_plot_data) > 1:
-                fig, ax = plt.subplots(len(cw.user_wallets))
+            wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
+            wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
+            wallets_plot_data.append(wallet_plot_data)
+            if wallets_plot_data:
                 for data in wallets_plot_data:
-                    ax[data[0]].plot(data[1][0], data[1][1])
-                fig.savefig(f'{cw.username}.png')
-            else:
-                fig = plt.figure()
-                plt.plot(wallets_plot_data[0][1][0], wallets_plot_data[0][1][1])
-                fig.savefig(f'{cw.username}.png')       
+                    fig = plt.figure()
+                    plt.plot(data[0], data[1])
+                    fig.savefig(f'static/{cw.username}_{name}.jpg')
+                    wallets_plots[name] = f'static/{cw.username}_{name}.jpg'
     context = {
         "stock_date" : cw.stock_date,
         "all_wallets_values" : all_wallets_values,
         "wallets_values" : wallets_values,
-        "user" : current_user.username
+        "user" : current_user.username,
+        "wallets_plots" : wallets_plots
     }
     return render_template("home.html", context=context)
 

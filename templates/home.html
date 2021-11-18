@@ -61,7 +61,8 @@
                                     <div class="container-fluid bg-success bg-opacity-50 rounded">
                                         {{ name }}
                                         <h5>{{ context.wallets_values[name].wallet_perc }} %</h5><br>
-                                        <h2>{{ context.wallets_values[name].wallet_profit }} $</h2><br>
+                                        <h2>{{ context.wallets_values[name].wallet_profit }} $</h2>
+                                        <img class="img-fluid" src="/static/user1_portfel11.jpg" /><br>
                                         {% if context.wallets_values[name].wallet_invest != 1 %}
                                             <h5>{{ context.wallets_values[name].wallet_invest }} $</h5>
                                         {% else %}
