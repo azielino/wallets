@@ -247,14 +247,34 @@ def home():
     if request.method == "POST":
         cw.update_stock()
         return redirect(url_for('home'))
-    stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
-    user_actions = UsersActions.query.filter_by(user=current_user.username).all()
-    all_wallets_values = {}
+    all_values = {}
     wallets_values = {}
     wallets_plot_data = []
-    wallets_plots = {}
+    stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
+    user_actions = UsersActions.query.filter_by(user=current_user.username).all()
     if stock_by_date and user_actions:
-        all_wallets_values = cw.get_wallet_values(user_actions, stock_by_date)
+        if os.path.exists(f'static/{cw.username}_all.jpg'):
+                os.remove(f'static/{cw.username}_all.jpg')
+        all_values = cw.get_wallet_values(user_actions, stock_by_date)
+        all_start_date = UsersActions.query.filter_by(id=1).first().start_date
+        all_plot_data = cw.wallet_plot_data(user_actions, all_start_date)
+        for i in range(1, len(all_plot_data[0])-1):
+            all_plot_data[0][i] = i
+        plt.style.use('dark_background')
+        plt.style.use('./static/presentation.mplstyle')
+        fig, ax = plt.subplots()
+        with plt.style.context('dark_background'):
+            ax.plot(all_plot_data[0], all_plot_data[1], 'b-o')
+        fig.text(0.35, 0.65, f'Całość', color='white', size=25,  fontweight='bold')
+        fig.text(0.75, 0.93, f'''wynik  {all_values['wallet_perc']} %''', color='white', size=12, fontweight='bold')
+        fig.text(0.05, 0.93, f'''kapitał  {all_values['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+        if all_values['wallet_profit'] >= 0:
+            fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='#00FF00', fontweight='bold',
+                ha='center', va='center', size=35)
+        else: 
+            fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='orangered', fontweight='bold',
+                ha='center', va='center', size=35)
+        fig.savefig(f'static/{cw.username}_all.jpg')
         for name in cw.user_wallets:
             if os.path.exists(f'static/{cw.username}_{name}.jpg'):
                 os.remove(f'static/{cw.username}_{name}.jpg')
@@ -264,16 +284,27 @@ def home():
             wallets_plot_data.append(wallet_plot_data)
             if wallets_plot_data:
                 for data in wallets_plot_data:
-                    fig = plt.figure()
-                    plt.plot(data[0], data[1])
+                    for i in range(1, len(data[0])-1):
+                        data[0][i] = i
+                    plt.style.use('dark_background')
+                    plt.style.use('./static/presentation.mplstyle')
+                    fig, ax = plt.subplots()
+                    with plt.style.context('dark_background'):
+                        ax.plot(data[0], data[1], 'b-o')
+                    fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
+                    fig.text(0.75, 0.93, f'''wynik  {wallets_values[f'{name}']['wallet_perc']} %''', color='white', size=12, fontweight='bold')
+                    fig.text(0.05, 0.93, f'''kapitał  {wallets_values[f'{name}']['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+                    if wallets_values[f'{name}']['wallet_profit'] >= 0:
+                        fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='#00FF00', fontweight='bold',
+                            ha='center', va='center', size=35)
+                    else: 
+                        fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='orangered', fontweight='bold',
+                            ha='center', va='center', size=35)
                     fig.savefig(f'static/{cw.username}_{name}.jpg')
-                    wallets_plots[name] = f'static/{cw.username}_{name}.jpg'
     context = {
         "stock_date" : cw.stock_date,
-        "all_wallets_values" : all_wallets_values,
         "wallets_values" : wallets_values,
         "user" : current_user.username,
-        "wallets_plots" : wallets_plots
     }
     return render_template("home.html", context=context)
 

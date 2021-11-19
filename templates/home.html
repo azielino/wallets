@@ -36,15 +36,9 @@
             <div class="container-fluid mt-3">
                 <div class="row">
                     <div class="col-3">
-                        <div class="container bg-info bg-opacity-50 rounded">
-                            Całość
-                            <h5>{{ context.all_wallets_values.wallet_perc }} %</h5><br>
-                            <h2>{{ context.all_wallets_values.wallet_profit }} $</h2><br>
-                            {% if context.all_wallets_values.wallet_invest != 1 %}
-                                <h5>KAPITAŁ: {{ context.all_wallets_values.wallet_invest }} $</h5>
-                            {% else %}
-                                <h5>KAPITAŁ: 0 $</h5>
-                            {% endif %}
+                        <div class="container" 
+                                style='height: 350px; background-image: url(/static/{{ context.user }}_all.jpg); 
+                                background-size:contain; background-repeat:no-repeat; background-position:center center;'>
                         </div><br>
                         <div class="container bg-info bg-opacity-50 rounded">
                             <h5>STWÓRZ PORTFEL</h5>
@@ -58,18 +52,9 @@
                     <div class="col-9">
                         <div class="row">
                             {% for name in context.wallets_values %}
-                                <div class="col-4 col-sm-4" style='background-image: url(/static/{{ context.user }}_{{ name }}.jpg); background-size:contain; background-repeat:no-repeat; background-position:center center;'>
-                                    <div class="bg-success bg-opacity-50 rounded" style='background-size:contain; background-repeat:no-repeat; background-position:center center; height: 18vw;'>
-                                        {{ name }}
-                                        <h5>{{ context.wallets_values[name].wallet_perc }} %</h5><br>
-                                        <h2>{{ context.wallets_values[name].wallet_profit }} $</h2><br>
-                                        <!--<img class="img-fluid" src="/static/{{ context.user }}_{{ name }}.jpg" /><br>-->
-                                        {% if context.wallets_values[name].wallet_invest != 1 %}
-                                            <h5>{{ context.wallets_values[name].wallet_invest }} $</h5>
-                                        {% else %}
-                                            <h5>0 $</h5>
-                                        {% endif %}
-                                    </div>
+                                <div class="col-4 col-sm-4" 
+                                style='height: 330px; background-image: url(/static/{{ context.user }}_{{ name }}.jpg); 
+                                background-size:contain; background-repeat:no-repeat; background-position:center center;'>
                                 </div>
                             {% endfor %}
                         </div>
