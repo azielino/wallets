@@ -1,4 +1,5 @@
 from flask import Flask, render_template, redirect, url_for, request
+from tasks import download_AV_price
 from db_creator import init_db
 from datetime import datetime, timedelta
 import time
@@ -6,7 +7,6 @@ import requests
 import csv
 import os
 import matplotlib.pyplot as plt
-import numpy as np
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
@@ -25,7 +25,6 @@ login_manager.login_view = "login"
 @login_manager.user_loader
 def load_user(user_id):
     return Users.query.get(int(user_id))
-
 
 class Wallet:
     
@@ -97,13 +96,6 @@ class Wallet:
                 user_wallets[name] = [act for act in user_actions if act.name == name]
         return user_wallets
 
-    def download_AV_price(self, source): # Alpha Vantage API
-        r = requests.get(source)
-        weekend = {'1': 3, '7': 2}
-        if self.today_iso in weekend:
-            return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(weekend[self.today_iso]))]['4. close']
-        return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(1))]['4. close']
-
     def update_stock(self):
         today_stock = Stock.query.filter_by(date=self.today_str).all()
         today_stock_symbols = {obj.symbol for obj in today_stock}
@@ -115,7 +107,8 @@ class Wallet:
             i = 0
             for symbol in self.user_symbols:
                 AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={self.AV_KEY}' # Alpha Vantage API
-                price = self.download_AV_price(AV_api_url) # Alpha Vantage API
+                result = self.download_AV_price.delay(AV_api_url) # Alpha Vantage API
+                price = result.get()
                 stock = Stock(
                     symbol = symbol,
                     price = price,
@@ -292,8 +285,8 @@ def home():
                     with plt.style.context('dark_background'):
                         ax.plot(data[0], data[1], 'b-o')
                     fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
-                    fig.text(0.75, 0.93, f'''wynik  {wallets_values[f'{name}']['wallet_perc']} %''', color='white', size=12, fontweight='bold')
-                    fig.text(0.05, 0.93, f'''kapitał  {wallets_values[f'{name}']['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+                    fig.text(0.75, 0.93, f'''{wallets_values[f'{name}']['wallet_perc']} %''', color='white', size=12, fontweight='bold')
+                    fig.text(0.05, 0.93, f'''{wallets_values[f'{name}']['wallet_invest']} $''', color='white', size=12, fontweight='bold')
                     if wallets_values[f'{name}']['wallet_profit'] >= 0:
                         fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='#00FF00', fontweight='bold',
                             ha='center', va='center', size=35)
