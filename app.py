@@ -1,11 +1,11 @@
 from flask import Flask, render_template, redirect, url_for, request
-from tasks import download_AV_price
 from db_creator import init_db
 from datetime import datetime, timedelta
 import time
 import requests
 import csv
 import os
+from tasks import download_AV_stock_symbols
 import matplotlib.pyplot as plt
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -25,6 +25,9 @@ login_manager.login_view = "login"
 @login_manager.user_loader
 def load_user(user_id):
     return Users.query.get(int(user_id))
+
+download_AV_stock_symbols.delay()
+today_symbols = download_AV_stock_symbols.delay().get()
 
 class Wallet:
     
@@ -68,15 +71,15 @@ class Wallet:
                 continue
             return stock_date
 
-    def download_AV_stock_symbols(self): # Alpha Vantage API
-        CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
-        with requests.Session() as s:
-            download = s.get(CSV_URL)
-            decoded_content = download.content.decode('utf-8')
-            cr = csv.reader(decoded_content.splitlines(), delimiter=',')
-            my_list = list(cr)
-            del my_list[0]
-            return [row[0] for row in my_list]
+    # def download_AV_stock_symbols(self): # Alpha Vantage API
+    #     CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
+    #     with requests.Session() as s:
+    #         download = s.get(CSV_URL)
+    #         decoded_content = download.content.decode('utf-8')
+    #         cr = csv.reader(decoded_content.splitlines(), delimiter=',')
+    #         my_list = list(cr)
+    #         del my_list[0]
+    #         return [row[0] for row in my_list]
 
     def set_user_symbols(self):
         user_symbols = set()
@@ -95,6 +98,13 @@ class Wallet:
             for name in user_wallets_names:
                 user_wallets[name] = [act for act in user_actions if act.name == name]
         return user_wallets
+    
+    def download_AV_price(self, source): # Alpha Vantage API
+        r = requests.get(source)
+        weekend = {'1': 3, '7': 2}
+        if self.today_iso in weekend:
+            return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(weekend[self.today_iso]))]['4. close']
+        return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(1))]['4. close']
 
     def update_stock(self):
         today_stock = Stock.query.filter_by(date=self.today_str).all()
@@ -107,8 +117,7 @@ class Wallet:
             i = 0
             for symbol in self.user_symbols:
                 AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={self.AV_KEY}' # Alpha Vantage API
-                result = self.download_AV_price.delay(AV_api_url) # Alpha Vantage API
-                price = result.get()
+                price = self.download_AV_price(AV_api_url) # Alpha Vantage API
                 stock = Stock(
                     symbol = symbol,
                     price = price,
@@ -325,7 +334,6 @@ def create_wallet():
     user_actions = UsersActions.query.filter_by(
         user=current_user.username).all()
     wallets_n = [wallet for wallet in user_actions if wallet.name == n]
-    today_symbols = cw.download_AV_stock_symbols()
     context = {
         "stock_date" : cw.stock_date,
         "symbols" : today_symbols,
