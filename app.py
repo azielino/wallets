@@ -47,6 +47,22 @@ class Wallet:
     def set_date_format(self, date):
         return f'{str(date.day)}-{str(date.month)}-{str(date.year)}' # format daty DD-MM-YYYY
 
+    def del_prev_plot_all(self, start_date, date, username):
+        date_str = self.set_date_format(date)
+        while date_str != start_date:
+            date -= timedelta(days=1)
+            date_str = self.set_date_format(date)
+            if os.path.exists(f'static/{date_str}_{username}_all.jpg'):
+                os.remove(f'static/{date_str}_{username}_all.jpg')
+
+    def del_prev_plot_user(self, start_date, date, username, name):
+        date_str = self.set_date_format(date)
+        while date_str != start_date:
+            date -= timedelta(days=1)
+            date_str = self.set_date_format(date)
+            if os.path.exists(f'static/{date_str}_{username}_{name}.jpg'):
+                os.remove(f'static/{date_str}_{username}_{name}.jpg')
+
     def date_value(self, date_str):
         return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
 
@@ -211,7 +227,7 @@ def logout():
 @login_required
 def home():
     cw = Wallet(current_user.username)
-    if request.method == "POST":
+    if request.method == "POST" and cw.symbols_to_update:
         stock_result = get_AV_stock.delay(cw.symbols_to_update).get()
         for symbol in stock_result:
             stock = Stock(
@@ -228,57 +244,62 @@ def home():
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
     if stock_by_date and user_actions and cw.stock_date == cw.today_str:
-        if os.path.exists(f'static/{cw.username}_all.jpg'):
-                os.remove(f'static/{cw.username}_all.jpg')
-        all_values = cw.get_wallet_values(user_actions, stock_by_date)
-        all_start_date = UsersActions.query.filter_by(id=1).first().start_date
-        all_plot_data = cw.wallet_plot_data(user_actions, all_start_date)
-        for i in range(1, len(all_plot_data[0])-1):
-            all_plot_data[0][i] = i
-        plt.style.use('dark_background')
-        plt.style.use('./static/presentation.mplstyle')
-        fig, ax = plt.subplots()
-        with plt.style.context('dark_background'):
-            ax.plot(all_plot_data[0], all_plot_data[1], 'b-o')
-        fig.text(0.35, 0.65, f'Całość', color='white', size=25,  fontweight='bold')
-        fig.text(0.75, 0.93, f'''wynik  {all_values['wallet_perc']} %''', color='white', size=12, fontweight='bold')
-        fig.text(0.05, 0.93, f'''kapitał  {all_values['wallet_invest']} $''', color='white', size=12, fontweight='bold')
-        if all_values['wallet_profit'] >= 0:
-            fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='#00FF00', fontweight='bold',
-                ha='center', va='center', size=35)
-        else: 
-            fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='orangered', fontweight='bold',
-                ha='center', va='center', size=35)
-        fig.savefig(f'static/{cw.username}_all.jpg')
+        if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
+            all_values = cw.get_wallet_values(user_actions, stock_by_date)
+            all_start_date = UsersActions.query.filter_by(id=1).first().start_date
+            cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
+            all_plot_data = cw.wallet_plot_data(user_actions, all_start_date)
+            for i in range(1, len(all_plot_data[0])-1):
+                all_plot_data[0][i] = i
+            plt.style.use('dark_background')
+            plt.style.use('./static/presentation.mplstyle')
+            fig, ax = plt.subplots()
+            with plt.style.context('dark_background'):
+                ax.plot(all_plot_data[0], all_plot_data[1], 'b-o')
+                ax.yaxis.set_major_formatter('${x:1.2f}')
+                ax.yaxis.set_tick_params(which='major', labelcolor='green',
+                    labelleft=True, labelright=False)
+            fig.text(0.35, 0.65, f'Całość', color='white', size=25,  fontweight='bold')
+            fig.text(0.75, 0.93, f'''wynik  {all_values['wallet_perc']} %''', color='white', size=12, fontweight='bold')
+            fig.text(0.05, 0.93, f'''kapitał  {all_values['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+            if all_values['wallet_profit'] >= 0:
+                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='#00FF00', fontweight='bold',
+                    ha='center', va='center', size=35)
+            else: 
+                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='orangered', fontweight='bold',
+                    ha='center', va='center', size=35)
+            fig.savefig(f'static/{cw.stock_date}_{cw.username}_all.jpg')
         for name in cw.user_wallets:
-            if os.path.exists(f'static/{cw.username}_{name}.jpg'):
-                os.remove(f'static/{cw.username}_{name}.jpg')
-            wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-            wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
-            wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
-            wallets_plot_data.append(wallet_plot_data)
-            if wallets_plot_data:
-                for data in wallets_plot_data:
-                    for i in range(1, len(data[0])-1):
-                        data[0][i] = i
-                    plt.style.use('dark_background')
-                    plt.style.use('./static/presentation.mplstyle')
-                    fig, ax = plt.subplots()
-                    with plt.style.context('dark_background'):
-                        ax.plot(data[0], data[1], 'b-o')
-                    fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
-                    fig.text(0.75, 0.93, f'''{wallets_values[f'{name}']['wallet_perc']} %''', color='white', size=12, fontweight='bold')
-                    fig.text(0.05, 0.93, f'''{wallets_values[f'{name}']['wallet_invest']} $''', color='white', size=12, fontweight='bold')
-                    if wallets_values[f'{name}']['wallet_profit'] >= 0:
-                        fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='#00FF00', fontweight='bold',
-                            ha='center', va='center', size=35)
-                    else: 
-                        fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='orangered', fontweight='bold',
-                            ha='center', va='center', size=35)
-                    fig.savefig(f'static/{cw.username}_{name}.jpg')
-    else:
-        for name in cw.user_wallets:
-            wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
+            if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
+                wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
+                wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
+                cw.del_prev_plot_user(wallet_start_date, cw.today, current_user.username, name)
+                wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
+                wallets_plot_data.append(wallet_plot_data)
+                if wallets_plot_data:
+                    for data in wallets_plot_data:
+                        for i in range(1, len(data[0])-1):
+                            data[0][i] = i
+                        plt.style.use('dark_background')
+                        plt.style.use('./static/presentation.mplstyle')
+                        fig, ax = plt.subplots()
+                        with plt.style.context('dark_background'):
+                            ax.plot(data[0], data[1], 'b-o')
+                            ax.yaxis.set_major_formatter('${x:1.2f}')
+                            ax.yaxis.set_tick_params(which='major', labelcolor='green',
+                                labelleft=True, labelright=False)
+                        fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
+                        fig.text(0.75, 0.93, f'''{wallets_values[f'{name}']['wallet_perc']} %''', color='white', size=12, fontweight='bold')
+                        fig.text(0.05, 0.93, f'''{wallets_values[f'{name}']['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+                        if wallets_values[f'{name}']['wallet_profit'] >= 0:
+                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='#00FF00', fontweight='bold',
+                                ha='center', va='center', size=35)
+                        else: 
+                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='orangered', fontweight='bold',
+                                ha='center', va='center', size=35)
+                        fig.savefig(f'static/{cw.stock_date}_{cw.username}_{name}.jpg')
+    for name in cw.user_wallets:
+        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
     context = {
         "stock_date" : cw.stock_date,
         "wallets_values" : wallets_values,
@@ -334,5 +355,5 @@ def show_wallets():
     }
     return render_template("show.html", context=context)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
