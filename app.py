@@ -1,11 +1,9 @@
 from flask import Flask, render_template, redirect, url_for, request
 from db_creator import init_db
 from datetime import datetime, timedelta
-import time
 import requests
-import csv
 import os
-from tasks import download_AV_stock_symbols
+from tasks import download_AV_stock_symbols, get_AV_stock
 import matplotlib.pyplot as plt
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -14,7 +12,9 @@ from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
+
 Users, Stock, UsersActions, db = init_db(app)
+
 bcrypt = Bcrypt(app)
 app.config['SECRET_KEY'] = 'tojestsekretnyklucz'
 
@@ -26,7 +26,6 @@ login_manager.login_view = "login"
 def load_user(user_id):
     return Users.query.get(int(user_id))
 
-download_AV_stock_symbols.delay()
 today_symbols = download_AV_stock_symbols.delay().get()
 
 class Wallet:
@@ -41,6 +40,7 @@ class Wallet:
         self.today_str = self.set_date_format(self.today)
         self.today_iso = str(datetime.isoweekday(datetime.today()))
         self.user_symbols = self.set_user_symbols()
+        self.symbols_to_update = self.set_symbols_to_update()
         self.stock_date = self.set_stock_date()
         self.user_wallets = self.set_user_wallets()
 
@@ -71,16 +71,6 @@ class Wallet:
                 continue
             return stock_date
 
-    # def download_AV_stock_symbols(self): # Alpha Vantage API
-    #     CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={self.AV_KEY}'
-    #     with requests.Session() as s:
-    #         download = s.get(CSV_URL)
-    #         decoded_content = download.content.decode('utf-8')
-    #         cr = csv.reader(decoded_content.splitlines(), delimiter=',')
-    #         my_list = list(cr)
-    #         del my_list[0]
-    #         return [row[0] for row in my_list]
-
     def set_user_symbols(self):
         user_symbols = set()
         user_actions = UsersActions.query.filter_by(user=self.username).all()
@@ -99,38 +89,13 @@ class Wallet:
                 user_wallets[name] = [act for act in user_actions if act.name == name]
         return user_wallets
     
-    def download_AV_price(self, source): # Alpha Vantage API
-        r = requests.get(source)
-        weekend = {'1': 3, '7': 2}
-        if self.today_iso in weekend:
-            return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(weekend[self.today_iso]))]['4. close']
-        return r.json()['Time Series (Daily)'][str(self.today.date()-timedelta(1))]['4. close']
-
-    def update_stock(self):
+    def set_symbols_to_update(self):
         today_stock = Stock.query.filter_by(date=self.today_str).all()
         today_stock_symbols = {obj.symbol for obj in today_stock}
         if today_stock_symbols:
-            for symbol in today_stock_symbols:
-                if symbol in self.user_symbols:
-                    self.user_symbols.remove(symbol)
-        if self.user_symbols:
-            i = 0
-            for symbol in self.user_symbols:
-                AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={self.AV_KEY}' # Alpha Vantage API
-                price = self.download_AV_price(AV_api_url) # Alpha Vantage API
-                stock = Stock(
-                    symbol = symbol,
-                    price = price,
-                    date = self.today_str,
-                    user = self.username
-                    )
-                db.session.add(stock)
-                db.session.commit()
-                i += 1
-                if i % 5 == 0 and i != len(self.user_symbols):
-                    time.sleep(58) # Alpha Vantage API
-            return True
-        return False
+            return [symbol for symbol in self.user_symbols if symbol not in today_stock_symbols]
+        else: 
+            return self.user_symbols
 
     def get_wallet_values(self, wallet, stock_by_date):
         wallet_income = round(float(), 2)
@@ -211,7 +176,7 @@ class LoginForm(FlaskForm):
     password = PasswordField(validators=[InputRequired(), Length(
         min=4, max=20)], render_kw={"placeholder": "Hasło"})
     submit = SubmitField("Zaloguj")
-
+ 
 
 @app.route("/")
 @app.route("/login/", methods=['GET', 'POST'])
@@ -247,14 +212,22 @@ def logout():
 def home():
     cw = Wallet(current_user.username)
     if request.method == "POST":
-        cw.update_stock()
-        return redirect(url_for('home'))
+        stock_result = get_AV_stock.delay(cw.symbols_to_update).get()
+        for symbol in stock_result:
+            stock = Stock(
+                symbol = symbol,
+                price = stock_result[symbol],
+                date = cw.today_str,
+                user = cw.username
+                )
+            db.session.add(stock)
+            db.session.commit()
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
-    if stock_by_date and user_actions:
+    if stock_by_date and user_actions and cw.stock_date == cw.today_str:
         if os.path.exists(f'static/{cw.username}_all.jpg'):
                 os.remove(f'static/{cw.username}_all.jpg')
         all_values = cw.get_wallet_values(user_actions, stock_by_date)
@@ -303,6 +276,9 @@ def home():
                         fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='orangered', fontweight='bold',
                             ha='center', va='center', size=35)
                     fig.savefig(f'static/{cw.username}_{name}.jpg')
+    else:
+        for name in cw.user_wallets:
+            wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
     context = {
         "stock_date" : cw.stock_date,
         "wallets_values" : wallets_values,
@@ -357,8 +333,6 @@ def show_wallets():
         "user" : current_user.username
     }
     return render_template("show.html", context=context)
-
-# ***********************************************************************************************
 
 if __name__ == '__main__':
     app.run(debug=True)
