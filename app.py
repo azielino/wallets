@@ -1,7 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, request
 from db_creator import init_db
 from datetime import datetime, timedelta
-import requests
 import os
 from tasks import download_AV_stock_symbols, get_AV_stock
 import matplotlib.pyplot as plt
@@ -144,7 +143,9 @@ class Wallet:
         stock = Stock.query.all()
         user_dates = list({item.date for item in stock if item.symbol in self.user_symbols})
         user_dates = sorted(user_dates)
-        wallet_dates = [date for date in user_dates if self.date_value(date) >= self.date_value(start_date)]
+        wallet_dates = [
+            date for date in user_dates if self.date_value(date) >= self.date_value(start_date)
+            ]
         wallet_profits = []
         x_axis = []
         for date in wallet_dates:
@@ -243,6 +244,8 @@ def home():
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     user_actions = UsersActions.query.filter_by(user=current_user.username).all()
+    for name in cw.user_wallets:
+        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
     if stock_by_date and user_actions and cw.stock_date == cw.today_str:
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(user_actions, stock_by_date)
@@ -256,18 +259,20 @@ def home():
             fig, ax = plt.subplots()
             with plt.style.context('dark_background'):
                 ax.plot(all_plot_data[0], all_plot_data[1], 'b-o')
-                ax.yaxis.set_major_formatter('${x:1.2f}')
+                ax.yaxis.set_major_formatter('${x:1.1f}')
                 ax.yaxis.set_tick_params(which='major', labelcolor='green',
                     labelleft=True, labelright=False)
             fig.text(0.35, 0.65, f'Całość', color='white', size=25,  fontweight='bold')
-            fig.text(0.75, 0.93, f'''wynik  {all_values['wallet_perc']} %''', color='white', size=12, fontweight='bold')
-            fig.text(0.05, 0.93, f'''kapitał  {all_values['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+            fig.text(0.75, 0.93, f'''wynik  {all_values['wallet_perc']} %''', 
+                color='white', size=12, fontweight='bold')
+            fig.text(0.05, 0.93, f'''kapitał  {all_values['wallet_invest']} $''', 
+                color='white', size=12, fontweight='bold')
             if all_values['wallet_profit'] >= 0:
-                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='#00FF00', fontweight='bold',
-                    ha='center', va='center', size=35)
+                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', 
+                    color='#00FF00', fontweight='bold', ha='center', va='center', size=35)
             else: 
-                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', color='orangered', fontweight='bold',
-                    ha='center', va='center', size=35)
+                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', 
+                    color='orangered', fontweight='bold', ha='center', va='center', size=35)
             fig.savefig(f'static/{cw.stock_date}_{cw.username}_all.jpg')
         for name in cw.user_wallets:
             if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
@@ -285,21 +290,22 @@ def home():
                         fig, ax = plt.subplots()
                         with plt.style.context('dark_background'):
                             ax.plot(data[0], data[1], 'b-o')
-                            ax.yaxis.set_major_formatter('${x:1.2f}')
+                            ax.set_ylim(0, wallets_values[f'{name}']['wallet_invest'])
+                            ax.yaxis.set_major_formatter('${x:1.1f}')
                             ax.yaxis.set_tick_params(which='major', labelcolor='green',
                                 labelleft=True, labelright=False)
                         fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
-                        fig.text(0.75, 0.93, f'''{wallets_values[f'{name}']['wallet_perc']} %''', color='white', size=12, fontweight='bold')
-                        fig.text(0.05, 0.93, f'''{wallets_values[f'{name}']['wallet_invest']} $''', color='white', size=12, fontweight='bold')
+                        fig.text(0.75, 0.93, f'''{wallets_values[f'{name}']['wallet_perc']} %''', 
+                            color='white', size=12, fontweight='bold')
+                        fig.text(0.05, 0.93, f'''{wallets_values[f'{name}']['wallet_invest']} $''', 
+                            color='white', size=12, fontweight='bold')
                         if wallets_values[f'{name}']['wallet_profit'] >= 0:
-                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='#00FF00', fontweight='bold',
-                                ha='center', va='center', size=35)
+                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', 
+                                color='#00FF00', fontweight='bold', ha='center', va='center', size=35)
                         else: 
-                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', color='orangered', fontweight='bold',
-                                ha='center', va='center', size=35)
+                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', 
+                            color='orangered', fontweight='bold', ha='center', va='center', size=35)
                         fig.savefig(f'static/{cw.stock_date}_{cw.username}_{name}.jpg')
-    for name in cw.user_wallets:
-        wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
     context = {
         "stock_date" : cw.stock_date,
         "wallets_values" : wallets_values,
@@ -355,5 +361,5 @@ def show_wallets():
     }
     return render_template("show.html", context=context)
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
