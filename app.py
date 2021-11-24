@@ -238,7 +238,7 @@ def home():
                 user = cw.username
                 )
             db.session.add(stock)
-            db.session.commit()
+        db.session.commit()
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []

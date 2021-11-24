@@ -30,8 +30,7 @@ def download_AV_stock_symbols():
 def get_AV_stock(symbols):
     weekend = {'1': 3, '7': 2}
     user_stock = {}
-    i = 0
-    for symbol in symbols:
+    for i, symbol in enumerate(symbols):
         AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
         r = requests.get(AV_api_url)
         if today_iso in weekend:
@@ -39,7 +38,6 @@ def get_AV_stock(symbols):
         else:
             price = r.json()['Time Series (Daily)'][str(today.date()-timedelta(1))]['4. close']
         user_stock[symbol] = price
-        i += 1
-        if i % 5 == 0 and i != len(symbols):
+        if (i + 1) % 5 == 0 and (i + 1) != len(symbols):
             time.sleep(58)
     return user_stock
