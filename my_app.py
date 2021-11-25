@@ -1,8 +1,8 @@
-from flask import Flask, render_template, redirect, url_for, request
-from db_creator import init_db
+from flask_creator import flask_app
+from flask import render_template, redirect, url_for, request
+from tasks import download_AV_stock_symbols, get_AV_stock, save_plot_all, save_plot_wallets, Users, Stock, UsersActions, db
 from datetime import datetime, timedelta
 import os
-from tasks import download_AV_stock_symbols, get_AV_stock
 import matplotlib.pyplot as plt
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -10,15 +10,13 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
 
-app = Flask(__name__)
 
-Users, Stock, UsersActions, db = init_db(app)
 
-bcrypt = Bcrypt(app)
-app.config['SECRET_KEY'] = 'tojestsekretnyklucz'
+bcrypt = Bcrypt(flask_app)
+flask_app.config['SECRET_KEY'] = 'tojestsekretnyklucz'
 
 login_manager = LoginManager()
-login_manager.init_app(app)
+login_manager.init_app(flask_app)
 login_manager.login_view = "login"
 
 @login_manager.user_loader
@@ -31,10 +29,10 @@ class Wallet:
     
     TAX = 0.19
     COMM_PERC = 0.0038
-    AV_KEY = '***' # Alpha Vantage API
 
     def __init__(self, username):
         self.username = username
+        self.user_actions = UsersActions.query.filter_by(user=self.username).all()
         self.today = datetime.today()
         self.today_str = self.set_date_format(self.today)
         self.today_iso = str(datetime.isoweekday(datetime.today()))
@@ -88,20 +86,18 @@ class Wallet:
 
     def set_user_symbols(self):
         user_symbols = set()
-        user_actions = UsersActions.query.filter_by(user=self.username).all()
-        if user_actions:
-            return list({action.symbol for action in user_actions if action.symbol not in user_symbols})
+        if self.user_actions:
+            return list({action.symbol for action in self.user_actions if action.symbol not in user_symbols})
         return user_symbols
 
     def set_user_wallets(self):
         user_wallets_names = set()
         user_wallets = {}
-        user_actions = UsersActions.query.filter_by(user=self.username).all()
-        if user_actions:
+        if self.user_actions:
             user_wallets_names = {
-                action.name for action in user_actions if action.name not in user_wallets_names}
+                action.name for action in self.user_actions if action.name not in user_wallets_names}
             for name in user_wallets_names:
-                user_wallets[name] = [act for act in user_actions if act.name == name]
+                user_wallets[name] = [act for act in self.user_actions if act.name == name]
         return user_wallets
     
     def set_symbols_to_update(self):
@@ -195,8 +191,8 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Zaloguj")
  
 
-@app.route("/")
-@app.route("/login/", methods=['GET', 'POST'])
+@flask_app.route("/")
+@flask_app.route("/login/", methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
@@ -207,7 +203,7 @@ def login():
                 return redirect(url_for('home'))
     return render_template("login.html", form=form)
 
-@app.route("/register/", methods=['GET', 'POST'])
+@flask_app.route("/register/", methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
@@ -218,62 +214,33 @@ def register():
         return redirect(url_for('login'))
     return render_template("register.html", form=form)
 
-@app.route('/logout/', methods=['GET', 'POST'])
+@flask_app.route('/logout/', methods=['GET', 'POST'])
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
-@app.route("/home/", methods=["GET", "POST"])
+@flask_app.route("/home/", methods=["GET", "POST"])
 @login_required
 def home():
     cw = Wallet(current_user.username)
     if request.method == "POST" and cw.symbols_to_update:
-        stock_result = get_AV_stock.delay(cw.symbols_to_update).get()
-        for symbol in stock_result:
-            stock = Stock(
-                symbol = symbol,
-                price = stock_result[symbol],
-                date = cw.today_str,
-                user = cw.username
-                )
-            db.session.add(stock)
-        db.session.commit()
+        get_AV_stock.delay(cw.symbols_to_update, current_user.username)
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
-    user_actions = UsersActions.query.filter_by(user=current_user.username).all()
     for name in cw.user_wallets:
         wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-    if stock_by_date and user_actions and cw.stock_date == cw.today_str:
+    if stock_by_date and cw.user_actions and cw.stock_date == cw.today_str:
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
-            all_values = cw.get_wallet_values(user_actions, stock_by_date)
-            all_start_date = UsersActions.query.filter_by(id=1).first().start_date
+            all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
+            all_start_date = cw.user_actions[0].start_date
             cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
-            all_plot_data = cw.wallet_plot_data(user_actions, all_start_date)
+            all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
             for i in range(1, len(all_plot_data[0])-1):
                 all_plot_data[0][i] = i
-            plt.style.use('dark_background')
-            plt.style.use('./static/presentation.mplstyle')
-            fig, ax = plt.subplots()
-            with plt.style.context('dark_background'):
-                ax.plot(all_plot_data[0], all_plot_data[1], 'b-o')
-                ax.yaxis.set_major_formatter('${x:1.1f}')
-                ax.yaxis.set_tick_params(which='major', labelcolor='green',
-                    labelleft=True, labelright=False)
-            fig.text(0.35, 0.65, f'Całość', color='white', size=25,  fontweight='bold')
-            fig.text(0.75, 0.93, f'''wynik  {all_values['wallet_perc']} %''', 
-                color='white', size=12, fontweight='bold')
-            fig.text(0.05, 0.93, f'''kapitał  {all_values['wallet_invest']} $''', 
-                color='white', size=12, fontweight='bold')
-            if all_values['wallet_profit'] >= 0:
-                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', 
-                    color='#00FF00', fontweight='bold', ha='center', va='center', size=35)
-            else: 
-                fig.text(0.5, 0.5, f'''{all_values['wallet_profit']} $''', 
-                    color='orangered', fontweight='bold', ha='center', va='center', size=35)
-            fig.savefig(f'static/{cw.stock_date}_{cw.username}_all.jpg')
+            save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
         for name in cw.user_wallets:
             if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
                 wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
@@ -282,30 +249,7 @@ def home():
                 wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
                 wallets_plot_data.append(wallet_plot_data)
                 if wallets_plot_data:
-                    for data in wallets_plot_data:
-                        for i in range(1, len(data[0])-1):
-                            data[0][i] = i
-                        plt.style.use('dark_background')
-                        plt.style.use('./static/presentation.mplstyle')
-                        fig, ax = plt.subplots()
-                        with plt.style.context('dark_background'):
-                            ax.plot(data[0], data[1], 'b-o')
-                            ax.set_ylim(0, wallets_values[f'{name}']['wallet_invest'])
-                            ax.yaxis.set_major_formatter('${x:1.1f}')
-                            ax.yaxis.set_tick_params(which='major', labelcolor='green',
-                                labelleft=True, labelright=False)
-                        fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
-                        fig.text(0.75, 0.93, f'''{wallets_values[f'{name}']['wallet_perc']} %''', 
-                            color='white', size=12, fontweight='bold')
-                        fig.text(0.05, 0.93, f'''{wallets_values[f'{name}']['wallet_invest']} $''', 
-                            color='white', size=12, fontweight='bold')
-                        if wallets_values[f'{name}']['wallet_profit'] >= 0:
-                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', 
-                                color='#00FF00', fontweight='bold', ha='center', va='center', size=35)
-                        else: 
-                            fig.text(0.5, 0.5, f'''{wallets_values[f'{name}']['wallet_profit']} $''', 
-                            color='orangered', fontweight='bold', ha='center', va='center', size=35)
-                        fig.savefig(f'static/{cw.stock_date}_{cw.username}_{name}.jpg')
+                    save_plot_wallets.delay(wallets_plot_data, wallets_values, name, cw.stock_date, cw.username)
     context = {
         "stock_date" : cw.stock_date,
         "wallets_values" : wallets_values,
@@ -313,7 +257,7 @@ def home():
     }
     return render_template("home.html", context=context)
 
-@app.route("/create_wallet/", methods=["GET", "POST"])
+@flask_app.route("/create_wallet/", methods=["GET", "POST"])
 @login_required
 def create_wallet():
     cw = Wallet(current_user.username)
@@ -334,9 +278,7 @@ def create_wallet():
             )
         db.session.add(investment)
         db.session.commit()
-    user_actions = UsersActions.query.filter_by(
-        user=current_user.username).all()
-    wallets_n = [wallet for wallet in user_actions if wallet.name == n]
+    wallets_n = [wallet for wallet in cw.user_actions if wallet.name == n]
     context = {
         "stock_date" : cw.stock_date,
         "symbols" : today_symbols,
@@ -350,7 +292,7 @@ def create_wallet():
     }
     return render_template("wallet.html", context=context)
 
-@app.route("/show_wallets/")
+@flask_app.route("/show_wallets/")
 @login_required
 def show_wallets():
     cw = Wallet(current_user.username)
@@ -362,4 +304,4 @@ def show_wallets():
     return render_template("show.html", context=context)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    flask_app.run()
