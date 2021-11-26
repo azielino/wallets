@@ -225,14 +225,14 @@ def logout():
 def home():
     cw = Wallet(current_user.username)
     if request.method == "POST" and cw.symbols_to_update:
-        get_AV_stock.delay(cw.symbols_to_update, current_user.username)
+        get_AV_stock.delay(cw.symbols_to_update, current_user.username, cw.stock_date)
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     for name in cw.user_wallets:
         wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
-    if stock_by_date and cw.user_actions and cw.stock_date == cw.today_str:
+    if stock_by_date and cw.user_actions and cw.stock_date <= cw.today_str:
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date

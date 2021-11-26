@@ -17,8 +17,21 @@ Users, Stock, UsersActions, db = init_db(flask_app)
 
 AV_KEY = '*********'
 today = datetime.today()
-today_str = f'{str(today.day)}-{str(today.month)}-{str(today.year)}'
 today_iso = str(datetime.isoweekday(datetime.today()))
+
+def set_date_format(date):
+    return f'{str(date.day)}-{str(date.month)}-{str(date.year)}'
+
+def date_value(date_str):
+    return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:])
+
+def check_api(url):
+    while True:
+        result = requests.get(url)
+        if not result.json():
+            time.sleep(60)
+            continue
+        else: return result
 
 @celery.task
 def download_AV_stock_symbols():
@@ -32,28 +45,35 @@ def download_AV_stock_symbols():
         return [row[0] for row in my_list]
 
 @celery.task
-def get_AV_stock(symbols, username):
+def get_AV_stock(symbols, username, stock_date):
     weekend = {'1': 3, '7': 2}
     user_stock = {}
     for i, symbol in enumerate(symbols):
         AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
-        r = requests.get(AV_api_url)
+        r = requests.get(AV_api_url).json()
         if today_iso in weekend:
-            price = r.json()['Time Series (Daily)'][str(today.date()-timedelta(weekend[today_iso]))]['4. close']
+            price = r['Time Series (Daily)'][str(today.date()-timedelta(weekend[today_iso]))]['4. close']
+            date = set_date_format(today.date()-timedelta(weekend[today_iso]))
         else:
-            price = r.json()['Time Series (Daily)'][str(today.date()-timedelta(1))]['4. close']
+            try:
+                price = r['Time Series (Daily)'][str(today.date()-timedelta(days = 1))]['4. close']
+                date = set_date_format(today.date()-timedelta(1))
+            except KeyError:
+                price = r['Time Series (Daily)'][str(today.date()-timedelta(2))]['4. close']
+                date = set_date_format(today.date()-timedelta(2))
         user_stock[symbol] = price
         if (i + 1) % 5 == 0 and (i + 1) != len(symbols):
             time.sleep(58)
-    for symbol, price in user_stock.items():
-        stock = Stock(
-            symbol = symbol,
-            price = price,
-            date = today_str,
-            user = username
-            )
-        db.session.add(stock)
-    db.session.commit()
+    if date_value(date) > date_value(stock_date):
+        for symbol, price in user_stock.items():
+            stock = Stock(
+                symbol = symbol,
+                price = price,
+                date = date,
+                user = username
+                )
+            db.session.add(stock)
+        db.session.commit()
 
 @celery.task
 def save_plot_all(plot_data, values, stock_date, username):
