@@ -1,5 +1,6 @@
 from celery import Celery
 from flask_creator import flask_app
+from api_key import api_key
 import time
 from datetime import datetime, timedelta
 import requests
@@ -15,7 +16,7 @@ celery = Celery(
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
-AV_KEY = '*********'
+AV_KEY = api_key
 today = datetime.today()
 today_iso = str(datetime.isoweekday(datetime.today()))
 

@@ -3,7 +3,6 @@ from flask import render_template, redirect, url_for, request
 from tasks import download_AV_stock_symbols, get_AV_stock, save_plot_all, save_plot_wallets, Users, Stock, UsersActions, db
 from datetime import datetime, timedelta
 import os
-import matplotlib.pyplot as plt
 from flask_login import login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
