@@ -16,7 +16,7 @@ celery = Celery(
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
-AV_KEY = api_key # test api_key do zmiany
+AV_KEY = api_key # test api_key ostatnia próba
 today = datetime.today()
 today_iso = str(datetime.isoweekday(datetime.today()))
 
