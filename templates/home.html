@@ -29,9 +29,7 @@
                     </ul>
                 </div>
                 <div class="mx-auto" style="width: 1400px;"><h2>Witaj {{ context.user }}</h2></div>
-                {% if context.wallets_values %}
                     <div class="text-end">Notowania z dnia: {{ context.stock_date }}</div>
-                {% endif %}
             </div>
         </nav>
         <main>
@@ -53,9 +51,9 @@
                     </div>
                     <div class="col-9">
                         <div class="row">
-                            {% for name in context.wallets_values %}
+                            {% for wallet in context.user_wallets %}
                                 <div class="col-4 col-sm-4" 
-                                style='height: 350px; background-image: url(/static/{{ context.stock_date }}_{{ context.user }}_{{ name }}.jpg); 
+                                style='height: 350px; background-image: url(/static/{{ context.stock_date }}_{{ context.user }}_{{ wallet }}.jpg); 
                                 background-size:contain; background-repeat:no-repeat; background-position:center center;'>
                                 </div>
                             {% endfor %}

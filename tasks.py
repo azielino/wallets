@@ -16,7 +16,7 @@ celery = Celery(
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
-AV_KEY = api_key # test api_key ostatnia próba
+AV_KEY = api_key
 today = datetime.today()
 today_iso = str(datetime.isoweekday(datetime.today()))
 
@@ -25,14 +25,6 @@ def set_date_format(date):
 
 def date_value(date_str):
     return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:])
-
-def check_api(url):
-    while True:
-        result = requests.get(url)
-        if not result.json():
-            time.sleep(60)
-            continue
-        else: return result
 
 @celery.task
 def download_AV_stock_symbols():
@@ -49,23 +41,19 @@ def download_AV_stock_symbols():
 def get_AV_stock(symbols, username, stock_date):
     weekend = {'1': 3, '7': 2}
     user_stock = {}
+    date = set_date_format(today.date() - timedelta(days=1))
     for i, symbol in enumerate(symbols):
         AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
         r = requests.get(AV_api_url).json()
         if today_iso in weekend:
-            price = r['Time Series (Daily)'][str(today.date()-timedelta(weekend[today_iso]))]['4. close']
+            price = r['Time Series (Daily)'][str(today.date() - timedelta(weekend[today_iso]))]['4. close']
             date = set_date_format(today.date()-timedelta(weekend[today_iso]))
         else:
-            try:
-                price = r['Time Series (Daily)'][str(today.date()-timedelta(days = 1))]['4. close']
-                date = set_date_format(today.date()-timedelta(1))
-            except KeyError:
-                price = r['Time Series (Daily)'][str(today.date()-timedelta(2))]['4. close']
-                date = set_date_format(today.date()-timedelta(2))
+            price = r['Time Series (Daily)'][str(today.date() - timedelta(days=1))]['4. close']
         user_stock[symbol] = price
         if (i + 1) % 5 == 0 and (i + 1) != len(symbols):
             time.sleep(58)
-    if date_value(date) > date_value(stock_date):
+    if date_value(date) >= date_value(stock_date):
         for symbol, price in user_stock.items():
             stock = Stock(
                 symbol = symbol,
@@ -75,6 +63,7 @@ def get_AV_stock(symbols, username, stock_date):
                 )
             db.session.add(stock)
         db.session.commit()
+    return True
 
 @celery.task
 def save_plot_all(plot_data, values, stock_date, username):
