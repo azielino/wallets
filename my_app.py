@@ -41,15 +41,14 @@ def logout():
 @login_required
 def home():
     cw = Wallet(current_user.username)
-    update = False
     if request.method == "POST"and cw.symbols_to_update:
-        update = get_AV_stock.delay(cw.symbols_to_update, current_user.username, cw.stock_date)
+        get_AV_stock(cw.symbols_to_update, current_user.username)
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     if stock_by_date and cw.user_actions:
-        if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg') and update:
+        if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date
             cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
@@ -58,7 +57,7 @@ def home():
                 all_plot_data[0][i] = i
             save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
         for name in cw.user_wallets:
-            if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg') and update:
+            if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
                 wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
                 wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
                 cw.del_prev_plot_user(wallet_start_date, cw.today, current_user.username, name)

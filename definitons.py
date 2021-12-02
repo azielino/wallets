@@ -82,7 +82,10 @@ class Wallet:
                 os.remove(f'static/{date_str}_{username}_{name}.jpg')
 
     def date_value(self, date_str):
-        return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
+        if len(date_str) == 10:
+            return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
+        else:
+            return int(date_str[0]) + (int(date_str[2:4])**3)*10 + int(date_str[5:]) # format daty DD-MM-YYYY
 
     def set_stock_date(self):
         stock = Stock.query.all()
