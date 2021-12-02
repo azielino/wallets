@@ -14,6 +14,8 @@ celery = Celery(
 	backend='db+sqlite:///celery_results.db'
 	)
 
+celery.conf.timezone = 'Europe/Warsaw'
+
 Users, Stock, UsersActions, db = init_db(flask_app)
 
 AV_KEY = api_key
@@ -36,6 +38,14 @@ def download_AV_stock_symbols():
         my_list = list(cr)
         del my_list[0]
         return [row[0] for row in my_list]
+
+@celery.task
+def check_Api(symbol, date_str):
+    AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
+    r = requests.get(AV_api_url).json()
+    price = r['Time Series (Daily)'][date_str]['4. close']
+    date = set_date_format(date_str)
+    return price, date
 
 @celery.task
 def get_AV_stock(symbols, username, stock_date):

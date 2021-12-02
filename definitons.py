@@ -54,12 +54,16 @@ class Wallet:
         self.today_str = self.set_date_format(self.today)
         self.today_iso = str(datetime.isoweekday(datetime.today()))
         self.user_symbols = self.set_user_symbols()
+        self.update_date = self.set_date_format(datetime.today() - timedelta(days=1))
         self.stock_date = self.set_stock_date()
         self.symbols_to_update = self.set_symbols_to_update()
         self.user_wallets = self.set_user_wallets()
 
     def set_date_format(self, date):
         return f'{str(date.day)}-{str(date.month)}-{str(date.year)}' # format daty DD-MM-YYYY
+
+    def set_update_date(self):
+        pass
 
     def del_prev_plot_all(self, start_date, date, username):
         date_str = self.set_date_format(date)
