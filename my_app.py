@@ -119,4 +119,4 @@ def show_wallets():
     return render_template("show.html", context=context)
 
 if __name__ == '__main__':
-    flask_app.run()
+    flask_app.run(debug=True)

@@ -20,12 +20,6 @@ Users, Stock, UsersActions, db = init_db(flask_app)
 
 AV_KEY = api_key
 
-def set_date_format(date):
-    return f'{str(date.day)}-{str(date.month)}-{str(date.year)}'
-
-def date_value(date_str):
-    return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:])
-
 @celery.task
 def download_AV_stock_symbols():
     CSV_URL = f'https://www.alphavantage.co/query?function=LISTING_STATUS&state=active&apikey={AV_KEY}'
@@ -41,12 +35,11 @@ def download_AV_stock_symbols():
 def get_api_price(symbol, date):
     AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
     price = requests.get(AV_api_url).json()['Time Series (Daily)'][date]['4. close']
-    print(symbol)
     return price
 
 def get_AV_stock(symbols, username):
     date = datetime.today().date() - timedelta(days=1)
-    date_str = set_date_format(date)
+    date_str = str(date)
     user_stock = {}
     for symbol in symbols:
         price = get_api_price.delay(symbol, str(date))

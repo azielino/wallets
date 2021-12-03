@@ -50,53 +50,31 @@ class Wallet:
     def __init__(self, username):
         self.username = username
         self.user_actions = UsersActions.query.filter_by(user=self.username).all()
-        self.today = datetime.today()
-        self.today_str = self.set_date_format(self.today)
-        self.today_iso = str(datetime.isoweekday(datetime.today()))
+        self.today = datetime.today().date()
         self.user_symbols = self.set_user_symbols()
-        self.update_date = self.set_date_format(datetime.today() - timedelta(days=1))
         self.stock_date = self.set_stock_date()
         self.symbols_to_update = self.set_symbols_to_update()
         self.user_wallets = self.set_user_wallets()
 
-    def set_date_format(self, date):
-        return f'{str(date.day)}-{str(date.month)}-{str(date.year)}' # format daty DD-MM-YYYY
-
-    def set_update_date(self):
-        pass
+    def set_stock_date(self):
+        if Stock.query.all():
+            return Stock.query.all()[-1].date
 
     def del_prev_plot_all(self, start_date, date, username):
-        date_str = self.set_date_format(date)
+        date_str = str(date)
         while date_str != start_date:
             date -= timedelta(days=1)
-            date_str = self.set_date_format(date)
+            date_str = str(date)
             if os.path.exists(f'static/{date_str}_{username}_all.jpg'):
                 os.remove(f'static/{date_str}_{username}_all.jpg')
 
     def del_prev_plot_user(self, start_date, date, username, name):
-        date_str = self.set_date_format(date)
+        date_str = str(date)
         while date_str != start_date:
             date -= timedelta(days=1)
-            date_str = self.set_date_format(date)
+            date_str = str(date)
             if os.path.exists(f'static/{date_str}_{username}_{name}.jpg'):
                 os.remove(f'static/{date_str}_{username}_{name}.jpg')
-
-    def date_value(self, date_str):
-        if len(date_str) == 10:
-            return int(date_str[0:2]) + (int(date_str[3:5])**3)*10 + int(date_str[6:]) # format daty DD-MM-YYYY
-        else:
-            return int(date_str[0]) + (int(date_str[2:4])**3)*10 + int(date_str[5:]) # format daty DD-MM-YYYY
-
-    def set_stock_date(self):
-        stock = Stock.query.all()
-        if stock:
-            max_date_value = 0
-            for item in stock:
-                date_value = self.date_value(item.date)
-                if date_value >= max_date_value:
-                    max_date_value = date_value
-                    stock_date = item.date
-            return stock_date
 
     def set_user_symbols(self):
         user_symbols = set()
@@ -115,12 +93,10 @@ class Wallet:
         return user_wallets
     
     def set_symbols_to_update(self):
-        date = self.today - timedelta(days=1)
-        date_str = self.set_date_format(date)
-        today_stock = Stock.query.filter_by(date=date_str).all()
-        today_stock_symbols = {obj.symbol for obj in today_stock}
-        if today_stock_symbols:
-            return [symbol for symbol in self.user_symbols if symbol not in today_stock_symbols]
+        act_stock = Stock.query.filter_by(date=str(self.today - timedelta(days=1))).all()
+        act_stock_symbols = {obj.symbol for obj in act_stock}
+        if act_stock_symbols:
+            return [symbol for symbol in self.user_symbols if symbol not in act_stock_symbols]
         else: 
             return self.user_symbols
 
@@ -155,9 +131,12 @@ class Wallet:
         stock = Stock.query.all()
         user_dates = list({item.date for item in stock if item.symbol in self.user_symbols})
         user_dates = sorted(user_dates)
-        wallet_dates = [
-            date for date in user_dates if self.date_value(date) >= self.date_value(start_date)
-            ]
+        for date in user_dates:
+            if date != start_date:
+                del date
+            else:
+                break
+        wallet_dates = user_dates
         wallet_profits = []
         x_axis = []
         for date in wallet_dates:
