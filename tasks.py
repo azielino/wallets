@@ -1,12 +1,13 @@
 from celery import Celery
+from celery.schedules import crontab
 from flask_creator import flask_app
 from api_key import api_key
-import time
 from datetime import datetime, timedelta
 import requests
 import csv
 from db_creator import init_db
 import matplotlib.pyplot as plt
+
 
 celery = Celery(
     'tasks',
@@ -14,7 +15,18 @@ celery = Celery(
 	backend='db+sqlite:///celery_results.db'
 	)
 
-celery.conf.timezone = 'Europe/London'
+celery.conf.timezone = 'Europe/Warsaw'
+
+@celery.on_after_configure.connect
+def setup_periodic_tasks(sender, **kwargs):
+    # Executes every Monday morning at 7:30 a.m.
+    sender.add_periodic_task(
+        crontab(minute=27, hour=13, day_of_week='tue,wed,thu,fri,sat'),
+        get_AV_stock.s(),
+    )
+
+
+print(datetime.today())
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
@@ -37,7 +49,16 @@ def get_api_price(symbol, date):
     price = requests.get(AV_api_url).json()['Time Series (Daily)'][date]['4. close']
     return price
 
+@celery.task
 def get_AV_stock(symbols, username):
+    # celery.conf.beat_schedule = {
+    #     # aktualizacja codziennie o 
+    #     'new_update': {
+    #         'task': 'tasks.get_AV_stock',
+    #         'schedule': crontab(minute=27, hour=13, day_of_week='tue,wed,thu,fri,sat'),
+    #         'args': (symbols, username)
+    #         },
+    #     }
     date = datetime.today().date() - timedelta(days=1)
     date_str = str(date)
     user_stock = {}
@@ -53,6 +74,7 @@ def get_AV_stock(symbols, username):
             )
         db.session.add(stock)
     db.session.commit()
+    return True
 
 @celery.task
 def save_plot_all(plot_data, values, stock_date, username):

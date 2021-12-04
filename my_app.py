@@ -41,8 +41,7 @@ def logout():
 @login_required
 def home():
     cw = Wallet(current_user.username)
-    if request.method == "POST"and cw.symbols_to_update:
-        get_AV_stock(cw.symbols_to_update, current_user.username)
+    get_AV_stock.delay(cw.symbols_to_update, current_user.username)
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []
