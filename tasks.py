@@ -17,17 +17,6 @@ celery = Celery(
 
 celery.conf.timezone = 'Europe/Warsaw'
 
-@celery.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
-    # Executes every Monday morning at 7:30 a.m.
-    sender.add_periodic_task(
-        crontab(minute=27, hour=13, day_of_week='tue,wed,thu,fri,sat'),
-        get_AV_stock.s(),
-    )
-
-
-print(datetime.today())
-
 Users, Stock, UsersActions, db = init_db(flask_app)
 
 AV_KEY = api_key
@@ -49,17 +38,10 @@ def get_api_price(symbol, date):
     price = requests.get(AV_api_url).json()['Time Series (Daily)'][date]['4. close']
     return price
 
+
 @celery.task
 def get_AV_stock(symbols, username):
-    # celery.conf.beat_schedule = {
-    #     # aktualizacja codziennie o 
-    #     'new_update': {
-    #         'task': 'tasks.get_AV_stock',
-    #         'schedule': crontab(minute=27, hour=13, day_of_week='tue,wed,thu,fri,sat'),
-    #         'args': (symbols, username)
-    #         },
-    #     }
-    date = datetime.today().date() - timedelta(days=1)
+    date = datetime.today().date() - timedelta(days=3)
     date_str = str(date)
     user_stock = {}
     for symbol in symbols:

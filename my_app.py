@@ -1,8 +1,9 @@
 from flask_creator import flask_app
 from flask import render_template, redirect, url_for, request
-from tasks import download_AV_stock_symbols, get_AV_stock, save_plot_all, save_plot_wallets
+from tasks import download_AV_stock_symbols, get_AV_stock, save_plot_all, save_plot_wallets, celery
 from tasks import Users, Stock, UsersActions, db
 from definitons import Wallet, LoginForm, RegisterForm, bcrypt
+from datetime import datetime, timedelta
 from flask_login import login_user, login_required, logout_user, current_user
 import os
 
@@ -41,6 +42,15 @@ def logout():
 @login_required
 def home():
     cw = Wallet(current_user.username)
+    # isoweekdays = [1, 2, 3, 4, 5, 6]
+    # if datetime.isoweekday(datetime.today()) in isoweekdays:
+    celery.conf.beat_schedule = {
+        'test-every-10-seconds': {
+            'task': 'tasks.get_AV_stock',
+            'schedule': timedelta(seconds=10),
+            'args': (cw.symbols_to_update, current_user.username)
+        },
+    }
     get_AV_stock.delay(cw.symbols_to_update, current_user.username)
     all_values = {}
     wallets_values = {}
