@@ -15,6 +15,12 @@ celery = Celery(
 	backend='db+sqlite:///celery_results.db'
 	)
 
+# celery.conf.beat_schedule = {
+#     'test-every-10-seconds': {
+#         'task': 'tasks.get_AV_stock',
+#         'schedule': timedelta(seconds=20)
+#     },
+# }
 celery.conf.timezone = 'Europe/Warsaw'
 
 Users, Stock, UsersActions, db = init_db(flask_app)
@@ -32,31 +38,31 @@ def download_AV_stock_symbols():
         del my_list[0]
         return [row[0] for row in my_list]
 
-@celery.task(autoretry_for=(Exception,), default_retry_delay=60)
-def get_api_price(symbol, date):
-    AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
-    price = requests.get(AV_api_url).json()['Time Series (Daily)'][date]['4. close']
-    return price
-
-
 @celery.task
-def get_AV_stock(symbols, username):
-    date = datetime.today().date() - timedelta(days=3)
-    date_str = str(date)
-    user_stock = {}
-    for symbol in symbols:
-        price = get_api_price.delay(symbol, str(date))
-        user_stock[symbol] = price
+def update_db(update_date, user_stock, username):
     for symbol, price in user_stock.items():
+        print(f'((({symbol}, {price})))')
         stock = Stock(
             symbol = symbol,
-            price = price.wait(),
-            date = date_str,
+            price = price,
+            date = update_date,
             user = username
             )
         db.session.add(stock)
     db.session.commit()
-    return True
+
+@celery.task(autoretry_for=(Exception,), default_retry_delay=60)
+def get_AV_price(AV_api_url, update_date):
+    return requests.get(AV_api_url).json()['Time Series (Daily)'][update_date]['4. close']
+
+@celery.task
+def get_AV_stock(symbols_to_update, update_date):
+    print("******************************  retry  **************************************")
+    user_stock = {}
+    for symbol in symbols_to_update:
+        AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
+        user_stock[symbol] = get_AV_price.delay(AV_api_url, update_date)
+    return user_stock
 
 @celery.task
 def save_plot_all(plot_data, values, stock_date, username):

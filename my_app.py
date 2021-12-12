@@ -1,6 +1,6 @@
 from flask_creator import flask_app
 from flask import render_template, redirect, url_for, request
-from tasks import download_AV_stock_symbols, get_AV_stock, save_plot_all, save_plot_wallets, celery
+from tasks import download_AV_stock_symbols, get_AV_stock, update_db, save_plot_all, save_plot_wallets, celery
 from tasks import Users, Stock, UsersActions, db
 from definitons import Wallet, LoginForm, RegisterForm, bcrypt
 from datetime import datetime, timedelta
@@ -42,16 +42,6 @@ def logout():
 @login_required
 def home():
     cw = Wallet(current_user.username)
-    # isoweekdays = [1, 2, 3, 4, 5, 6]
-    # if datetime.isoweekday(datetime.today()) in isoweekdays:
-    celery.conf.beat_schedule = {
-        'test-every-10-seconds': {
-            'task': 'tasks.get_AV_stock',
-            'schedule': timedelta(seconds=10),
-            'args': (cw.symbols_to_update, current_user.username)
-        },
-    }
-    get_AV_stock.delay(cw.symbols_to_update, current_user.username)
     all_values = {}
     wallets_values = {}
     wallets_plot_data = []
@@ -79,6 +69,16 @@ def home():
         "user_wallets" : cw.user_wallets,
         "user" : current_user.username,
     }
+    if request.method == "POST":
+        isoweekdays = [2, 3, 4, 5, 6]
+        update_date = str(datetime.today().date() - timedelta(days=1))
+        user_stock = None
+        if datetime.isoweekday(datetime.today()) in isoweekdays and cw.stock_date != update_date:
+            user_stock = get_AV_stock.delay(cw.symbols_to_update, update_date).wait()
+        if user_stock:
+            for symbol, price in user_stock.items():
+                user_stock[symbol] = price.wait()
+            update_db.delay(update_date, user_stock, current_user.username)
     return render_template("home.html", context=context)
 
 @flask_app.route("/create_wallet/", methods=["GET", "POST"])
