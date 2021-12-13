@@ -52,13 +52,26 @@ class Wallet:
         self.user_actions = UsersActions.query.filter_by(user=self.username).all()
         self.today = datetime.today().date()
         self.user_symbols = self.set_user_symbols()
-        self.stock_date = self.set_stock_date()
         self.symbols_to_update = self.set_symbols_to_update()
+        self.stock_date = self.set_stock_date()
         self.user_wallets = self.set_user_wallets()
 
     def set_stock_date(self):
-        if Stock.query.all():
-            return Stock.query.all()[-1].date
+        last_user_dates = []
+        if self.symbols_to_update:
+            for symbol in self.symbols_to_update:
+                symbol_stock = Stock.query.filter_by(symbol=symbol).all()
+                if symbol_stock:
+                    symbol_date = max([obj.date for obj in symbol_stock])
+                    last_user_dates.append(symbol_date)
+                    return max(last_user_dates)
+        else:
+            for symbol in self.user_symbols:
+                symbol_stock = Stock.query.filter_by(symbol=symbol).all()
+                if symbol_stock:
+                    symbol_date = max([obj.date for obj in symbol_stock])
+                    last_user_dates.append(symbol_date)
+                    return max(last_user_dates)
 
     def del_prev_plot_all(self, start_date, date, username):
         date_str = str(date)
@@ -93,12 +106,10 @@ class Wallet:
         return user_wallets
     
     def set_symbols_to_update(self):
-        act_stock = Stock.query.filter_by(date=str(self.today - timedelta(days=1))).all()
-        act_stock_symbols = {obj.symbol for obj in act_stock}
-        if act_stock_symbols:
-            return [symbol for symbol in self.user_symbols if symbol not in act_stock_symbols]
-        else: 
-            return self.user_symbols
+        last_date = Stock.query.all()[-1].date
+        last_update = Stock.query.filter_by(date=last_date).all()
+        last_update_symbols = {obj.symbol for obj in last_update}
+        return [symbol for symbol in self.user_symbols if symbol not in last_update_symbols]
 
     def get_wallet_values(self, wallet, stock_by_date):
         wallet_income = round(float(), 2)
@@ -131,12 +142,14 @@ class Wallet:
         stock = Stock.query.all()
         user_dates = list({item.date for item in stock if item.symbol in self.user_symbols})
         user_dates = sorted(user_dates)
+        wallet_dates = []
         for date in user_dates:
-            if date != start_date:
-                del date
+            if date < start_date:
+                continue
             else:
-                break
-        wallet_dates = user_dates
+                wallet_dates.append(date)
+        if not wallet_dates:
+            wallet_dates.append(str(self.today))
         wallet_profits = []
         x_axis = []
         for date in wallet_dates:

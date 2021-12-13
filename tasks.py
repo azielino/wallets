@@ -57,7 +57,6 @@ def get_AV_price(AV_api_url, update_date):
 
 @celery.task
 def get_AV_stock(symbols_to_update, update_date):
-    print("******************************  retry  **************************************")
     user_stock = {}
     for symbol in symbols_to_update:
         AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'

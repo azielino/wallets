@@ -57,7 +57,7 @@ def home():
             save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
         for name in cw.user_wallets:
             if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
-                wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)
+                wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
                 wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
                 cw.del_prev_plot_user(wallet_start_date, cw.today, current_user.username, name)
                 wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
@@ -70,12 +70,11 @@ def home():
         "user" : current_user.username,
     }
     if request.method == "POST":
-        isoweekdays = [2, 3, 4, 5, 6]
-        update_date = str(datetime.today().date() - timedelta(days=1))
+        isoweekdays = [1, 2, 3, 4, 5, 6]
+        update_date = str(datetime.today().date() - timedelta(days=3))
         user_stock = None
         if datetime.isoweekday(datetime.today()) in isoweekdays and cw.stock_date != update_date:
             user_stock = get_AV_stock.delay(cw.symbols_to_update, update_date).wait()
-        if user_stock:
             for symbol, price in user_stock.items():
                 user_stock[symbol] = price.wait()
             update_db.delay(update_date, user_stock, current_user.username)
@@ -98,11 +97,12 @@ def create_wallet():
             symbol = s,
             price = w,
             quantity = q,
-            start_date = cw.today_str
+            start_date = str(cw.today)
             )
         db.session.add(investment)
         db.session.commit()
-    wallets_n = [wallet for wallet in cw.user_actions if wallet.name == n]
+    user_actions = UsersActions.query.filter_by(user=current_user.username).all()
+    wallets_n = [wallet for wallet in user_actions if wallet.name == n]
     context = {
         "stock_date" : cw.stock_date,
         "symbols" : today_symbols,
