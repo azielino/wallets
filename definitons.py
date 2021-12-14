@@ -82,6 +82,8 @@ class Wallet:
                 os.remove(f'static/{date_str}_{username}_all.jpg')
 
     def del_prev_plot_user(self, start_date, date, username, name):
+        if os.path.exists(f'static/{start_date}_{username}_{name}.jpg'):
+            os.remove(f'static/{start_date}_{username}_{name}.jpg')
         date_str = str(date)
         while date_str != start_date:
             date -= timedelta(days=1)
@@ -107,6 +109,9 @@ class Wallet:
     
     def set_symbols_to_update(self):
         last_date = Stock.query.all()[-1].date
+        update_date = str(datetime.today().date() - timedelta(days=1))
+        if last_date != update_date:
+            return self.user_symbols
         last_update = Stock.query.filter_by(date=last_date).all()
         last_update_symbols = {obj.symbol for obj in last_update}
         return [symbol for symbol in self.user_symbols if symbol not in last_update_symbols]

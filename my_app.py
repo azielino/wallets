@@ -1,6 +1,6 @@
 from flask_creator import flask_app
 from flask import render_template, redirect, url_for, request
-from tasks import download_AV_stock_symbols, get_AV_stock, update_db, save_plot_all, save_plot_wallets, celery
+from tasks import download_AV_stock_symbols, get_AV_stock, update_db, save_plot_all, save_plot_wallets
 from tasks import Users, Stock, UsersActions, db
 from definitons import Wallet, LoginForm, RegisterForm, bcrypt
 from datetime import datetime, timedelta
@@ -50,34 +50,34 @@ def home():
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date
-            cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
             all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
             for i in range(1, len(all_plot_data[0])-1):
                 all_plot_data[0][i] = i
             save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
+            cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
         for name in cw.user_wallets:
             if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
                 wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
                 wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
-                cw.del_prev_plot_user(wallet_start_date, cw.today, current_user.username, name)
                 wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
                 wallets_plot_data.append(wallet_plot_data)
                 if wallets_plot_data:
                     save_plot_wallets.delay(wallets_plot_data, wallets_values, name, cw.stock_date, cw.username)
+                cw.del_prev_plot_user(wallet_start_date, cw.today, current_user.username, name)
     context = {
         "stock_date" : cw.stock_date,
         "user_wallets" : cw.user_wallets,
         "user" : current_user.username,
     }
     if request.method == "POST":
-        isoweekdays = [1, 2, 3, 4, 5, 6]
-        update_date = str(datetime.today().date() - timedelta(days=3))
-        user_stock = None
+        isoweekdays = [2, 3, 4, 5, 6]
+        update_date = str(datetime.today().date() - timedelta(days=1))
         if datetime.isoweekday(datetime.today()) in isoweekdays and cw.stock_date != update_date:
             user_stock = get_AV_stock.delay(cw.symbols_to_update, update_date).wait()
             for symbol, price in user_stock.items():
                 user_stock[symbol] = price.wait()
-            update_db.delay(update_date, user_stock, current_user.username)
+            if user_stock:
+                update_db.delay(update_date, user_stock, current_user.username)
     return render_template("home.html", context=context)
 
 @flask_app.route("/create_wallet/", methods=["GET", "POST"])
