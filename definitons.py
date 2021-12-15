@@ -74,6 +74,8 @@ class Wallet:
 
     def del_prev_plot_all(self, start_date, date, username):
         date_str = str(date)
+        if os.path.exists(f'static/{date_str}_{username}_all.jpg'):
+            os.remove(f'static/{date_str}_{username}_all.jpg')
         while date_str != start_date:
             date -= timedelta(days=1)
             date_str = str(date)

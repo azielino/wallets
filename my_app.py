@@ -51,11 +51,11 @@ def home():
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date
+            cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
             all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
             for i in range(1, len(all_plot_data[0])-1):
                 all_plot_data[0][i] = i
             save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
-            cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
         for name in cw.user_wallets:
             if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
                 wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
@@ -126,6 +126,7 @@ def show_wallets():
         UsersActions.query.filter_by(name=n).delete()
         db.session.commit()
         os.remove(f'static/{cw.stock_date}_{current_user.username}_{n}.jpg')
+        os.remove(f'static/{cw.stock_date}_{current_user.username}_all.jpg')
         return redirect(url_for('show_wallets'))
     context = {
         "stock_date" : cw.stock_date,
