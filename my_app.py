@@ -46,7 +46,8 @@ def home():
     wallets_values = {}
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
-    if stock_by_date and cw.user_actions:
+    stock = Stock.query.all()
+    if stock and cw.user_actions:
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date
@@ -72,7 +73,7 @@ def home():
     if request.method == "POST":
         isoweekdays = [2, 3, 4, 5, 6]
         update_date = str(datetime.today().date() - timedelta(days=1))
-        if datetime.isoweekday(datetime.today()) in isoweekdays and cw.stock_date != update_date:
+        if datetime.isoweekday(datetime.today()) in isoweekdays and cw.symbols_to_update:
             user_stock = get_AV_stock.delay(cw.symbols_to_update, update_date).wait()
             for symbol, price in user_stock.items():
                 user_stock[symbol] = price.wait()
@@ -97,7 +98,7 @@ def create_wallet():
             symbol = s,
             price = w,
             quantity = q,
-            start_date = str(cw.today)
+            start_date = str(cw.today - timedelta(days=1))
             )
         db.session.add(investment)
         db.session.commit()
@@ -116,10 +117,16 @@ def create_wallet():
     }
     return render_template("wallet.html", context=context)
 
-@flask_app.route("/show_wallets/")
+@flask_app.route("/show_wallets/", methods=["GET", "POST"])
 @login_required
 def show_wallets():
     cw = Wallet(current_user.username)
+    n = request.form.get('name')
+    if n:
+        UsersActions.query.filter_by(name=n).delete()
+        db.session.commit()
+        os.remove(f'static/{cw.stock_date}_{current_user.username}_{n}.jpg')
+        return redirect(url_for('show_wallets'))
     context = {
         "stock_date" : cw.stock_date,
         "wallets" : cw.user_wallets,

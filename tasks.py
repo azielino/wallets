@@ -1,8 +1,6 @@
 from celery import Celery
-from celery.schedules import crontab
 from flask_creator import flask_app
 from api_key import api_key
-from datetime import datetime, timedelta
 import requests
 import csv
 from db_creator import init_db
@@ -14,8 +12,6 @@ celery = Celery(
     broker='sqla+sqlite:///celery.db',
 	backend='db+sqlite:///celery_results.db'
 	)
-
-celery.conf.timezone = 'Europe/Warsaw'
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
@@ -51,13 +47,6 @@ def get_AV_price(AV_api_url, update_date):
 
 @celery.task
 def get_AV_stock(symbols_to_update, update_date):
-    celery.conf.beat_schedule = {
-        'test-every-10-seconds': {
-            'task': 'tasks.get_AV_stock',
-            'schedule': timedelta(seconds=10),
-            'args': (symbols_to_update, update_date)
-        },
-    }
     user_stock = {}
     for symbol in symbols_to_update:
         AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'

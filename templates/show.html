@@ -26,7 +26,12 @@
                 <div class="align-items-end">Dane na dzień: {{ context.stock_date }}</div>
             </div>
         </nav>
-        <main>
+        <main><br>
+            <form action="/show_wallets/" method="POST">
+                <label class="form-label ">Usuń portfel</label>
+                <input class="form-input" type="text" placeholder="Nazwa porfela" name="name">
+                <button class="btn-primary" type="submit">Usuń</button>
+            </form><br>
             <div class="row">
                 {% for wallet in context.wallets %}
                 <div class="col-4 col-sm-4 mt-3">
