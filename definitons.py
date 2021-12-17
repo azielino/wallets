@@ -57,20 +57,25 @@ class Wallet:
         self.user_wallets = self.set_user_wallets()
 
     def set_stock_date(self):
-        last_user_dates = [str(datetime.today().date() - timedelta(days=1))]
-        if self.symbols_to_update:
-            for symbol in self.symbols_to_update:
-                symbol_stock = Stock.query.filter_by(symbol=symbol).all()
-                if symbol_stock:
-                    symbol_date = max([obj.date for obj in symbol_stock])
-                    last_user_dates.append(symbol_date)
-        else:
+        check_symbols = []
+        user_symbols_dates = set()
+        if self.user_symbols:
             for symbol in self.user_symbols:
                 symbol_stock = Stock.query.filter_by(symbol=symbol).all()
-                if symbol_stock:
-                    symbol_date = max([obj.date for obj in symbol_stock])
-                    last_user_dates.append(symbol_date)
-        return max(last_user_dates)
+                if not symbol_stock:
+                    return '0000-00-00'
+                for obj in symbol_stock:
+                    user_symbols_dates.add(obj.date)
+            stock_dates = user_symbols_dates
+            for date in list(user_symbols_dates):
+                stock_by_date = Stock.query.filter_by(date=date).all()
+                check_symbols = [obj.symbol for obj in stock_by_date]
+                for symbol in self.user_symbols:
+                    if symbol not in check_symbols:
+                        stock_dates.remove(date)
+                        break
+            return max(list(stock_dates))
+        return '0000-00-00'
 
     def del_prev_plot_all(self, start_date, date, username):
         date_str = str(date)

@@ -47,7 +47,7 @@ def home():
     wallets_plot_data = []
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     stock = Stock.query.all()
-    if stock and cw.user_actions:
+    if stock and cw.stock_date != '0000-00-00':
         if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date

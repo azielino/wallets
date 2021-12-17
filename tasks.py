@@ -60,7 +60,7 @@ def save_plot_all(plot_data, values, stock_date, username):
     fig, ax = plt.subplots()
     with plt.style.context('dark_background'):
         ax.plot(plot_data[0], plot_data[1], 'b-o')
-        ax.set_ylim(0, values['wallet_invest'])
+        ax.set_ylim(min(plot_data[1]), max(plot_data[1])*2)
         ax.yaxis.set_major_formatter('${x:1.1f}')
         ax.yaxis.set_tick_params(which='major', labelcolor='green',
             labelleft=True, labelright=False)
@@ -87,7 +87,7 @@ def save_plot_wallets(wallets_data, values, name, stock_date, username):
         fig, ax = plt.subplots()
         with plt.style.context('dark_background'):
             ax.plot(data[0], data[1], 'b-o')
-            ax.set_ylim(0, values[f'{name}']['wallet_invest'])
+            ax.set_ylim(min(data[1]), max(data[1])*2)
             ax.yaxis.set_major_formatter('${x:1.1f}')
             ax.yaxis.set_tick_params(which='major', labelcolor='green',
                 labelleft=True, labelright=False)
