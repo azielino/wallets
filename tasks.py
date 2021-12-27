@@ -6,7 +6,6 @@ import csv
 from db_creator import init_db
 import matplotlib.pyplot as plt
 
-
 celery = Celery(
     'tasks',
     broker='sqla+sqlite:///celery.db',

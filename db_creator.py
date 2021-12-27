@@ -1,12 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 
-
 def init_db(app):
 
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wallets.db'
-    db = SQLAlchemy(app)
-
+    db = SQLAlchemy(app) 
 
     class Users(db.Model, UserMixin):
         id = db.Column(db.Integer, primary_key=True)

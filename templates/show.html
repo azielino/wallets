@@ -28,9 +28,8 @@
         </nav>
         <main><br>
             <form action="/show_wallets/" method="POST">
-                <label class="form-label ">Usuń portfel</label>
                 <input class="form-input" type="text" placeholder="Nazwa porfela" name="name">
-                <button class="btn-primary" type="submit">Usuń</button>
+                <button class="btn btn-primary" type="submit">Usuń portfel</button>
             </form><br>
             <div class="row">
                 {% for wallet in context.wallets %}
