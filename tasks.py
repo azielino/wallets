@@ -14,7 +14,7 @@ celery = Celery(
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
-AV_KEY = api_key
+AV_KEY = 'api_key'
 
 @celery.task
 def download_AV_stock_symbols():
@@ -58,23 +58,28 @@ def save_plot_all(plot_data, values, stock_date, username):
     plt.style.use('./static/presentation.mplstyle')
     fig, ax = plt.subplots()
     with plt.style.context('dark_background'):
-        ax.plot(plot_data[0], plot_data[1], 'b-o')
-        ax.set_ylim(min(plot_data[1]), max(plot_data[1])*2)
-        ax.yaxis.set_major_formatter('${x:1.1f}')
-        ax.yaxis.set_tick_params(which='major', labelcolor='green',
-            labelleft=True, labelright=False)
-    fig.text(0.35, 0.65, f'Całość', color='white', size=25,  fontweight='bold')
-    fig.text(0.75, 0.93, f'''wynik  {values['wallet_perc']} %''', 
-        color='white', size=12, fontweight='bold')
-    fig.text(0.05, 0.93, f'''kapitał ${values['wallet_invest']}''', 
-        color='white', size=12, fontweight='bold')
+        ax.plot(plot_data[0], plot_data[1], 'b')
+        ax.axis('off')
+        # ax.set_ylim(min(plot_data[1]), max(plot_data[1])*2)
+        # ax.yaxis.set_major_formatter('${x:1.1f}')
+        # ax.yaxis.set_tick_params(which='major', labelcolor='green',
+        #     labelleft=True, labelright=False)
+    fig.text(0.05, 0.93, f'total', color='white', size=25,  fontweight='bold')
+    fig.text(0.80, 0.93, f'''{values['wallet_perc']} %''', 
+        color='white', size=15, fontweight='bold')
+    fig.text(0.05, 0.85, f'''$ {values['wallet_invest']}''', 
+        color='white', size=15, fontweight='bold')
+    fig.text(0.05, 0.05, f'''{plot_data[0][0]}''', 
+        color='white', size=15, fontweight='bold')
+    fig.text(0.75, 0.05, f'''{plot_data[0][-1]}''', 
+        color='white', size=15, fontweight='bold')
     if values['wallet_profit'] >= 0:
         fig.text(0.5, 0.5, f'''{values['wallet_profit']} $''', 
-            color='#00FF00', fontweight='bold', ha='center', va='center', size=35)
+            color='#00FF00', fontweight='bold', ha='center', va='center', size=50)
     else: 
         fig.text(0.5, 0.5, f'''{values['wallet_profit']} $''', 
-            color='orangered', fontweight='bold', ha='center', va='center', size=35)
-    fig.savefig(f'static/{stock_date}_{username}_all.jpg')
+            color='orangered', fontweight='bold', ha='center', va='center', size=50)
+    fig.savefig(f'static/{stock_date}_{username}_all.png')
 
 @celery.task
 def save_plot_wallets(wallets_data, values, name, stock_date, username):
@@ -85,20 +90,25 @@ def save_plot_wallets(wallets_data, values, name, stock_date, username):
         plt.style.use('./static/presentation.mplstyle')
         fig, ax = plt.subplots()
         with plt.style.context('dark_background'):
-            ax.plot(data[0], data[1], 'b-o')
-            ax.set_ylim(min(data[1]), max(data[1])*2)
-            ax.yaxis.set_major_formatter('${x:1.1f}')
-            ax.yaxis.set_tick_params(which='major', labelcolor='green',
-                labelleft=True, labelright=False)
-        fig.text(0.35, 0.65, f'{name}', color='white', size=25,  fontweight='bold')
+            ax.plot(data[0], data[1], 'b')
+            ax.axis('off')
+            # ax.set_ylim(min(data[1]), max(data[1])*2)
+            # ax.yaxis.set_major_formatter('${x:1.1f}')
+            # ax.yaxis.set_tick_params(which='major', labelcolor='green',
+            #     labelleft=True, labelright=False)
+        fig.text(0.05, 0.93, f'{name}', color='white', size=25,  fontweight='bold')
         fig.text(0.75, 0.93, f'''{values[f'{name}']['wallet_perc']} %''', 
-            color='white', size=12, fontweight='bold')
-        fig.text(0.05, 0.93, f'''${values[f'{name}']['wallet_invest']}''', 
-            color='white', size=12, fontweight='bold')
+            color='white', size=15, fontweight='bold')
+        fig.text(0.05, 0.85, f'''$ {values[f'{name}']['wallet_invest']}''', 
+            color='white', size=15, fontweight='bold')
+        fig.text(0.05, 0.05, f'''{data[0][0]}''', 
+            color='white', size=15, fontweight='bold')
+        fig.text(0.75, 0.05, f'''{data[0][-1]}''', 
+            color='white', size=15, fontweight='bold')
         if values[f'{name}']['wallet_profit'] >= 0:
             fig.text(0.5, 0.5, f'''{values[f'{name}']['wallet_profit']} $''', 
-                color='#00FF00', fontweight='bold', ha='center', va='center', size=35)
+                color='#00FF00', fontweight='bold', ha='center', va='center', size=50)
         else: 
             fig.text(0.5, 0.5, f'''{values[f'{name}']['wallet_profit']} $''', 
-            color='orangered', fontweight='bold', ha='center', va='center', size=35)
-        fig.savefig(f'static/{stock_date}_{username}_{name}.jpg')
+            color='orangered', fontweight='bold', ha='center', va='center', size=50)
+        fig.savefig(f'static/{stock_date}_{username}_{name}.png')
