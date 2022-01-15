@@ -1,6 +1,7 @@
 from flask_creator import flask_app
 from flask import render_template, redirect, url_for, request
-from tasks import download_AV_stock_symbols, get_AV_stock, update_db, save_plot_all, save_plot_wallets
+from tasks import download_AV_stock_symbols, get_AV_stock, update_db
+from tasks import save_plot_all, save_plot_wallets, del_prev_plot_all, del_prev_plot_user
 from tasks import Users, Stock, UsersActions, db
 from definitons import Wallet, LoginForm, RegisterForm, bcrypt
 from datetime import datetime, timedelta
@@ -48,23 +49,21 @@ def home():
     stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
     stock = Stock.query.all()
     if stock and cw.stock_date != '0000-00-00':
-        if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.jpg'):
+        if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.png'):
             all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
             all_start_date = cw.user_actions[0].start_date
-            cw.del_prev_plot_all(all_start_date, cw.today, current_user.username)
             all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
-            for i in range(1, len(all_plot_data[0])-1):
-                all_plot_data[0][i] = i
             save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
+            del_prev_plot_all.delay(all_start_date, cw.today, current_user.username)
         for name in cw.user_wallets:
-            if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.jpg'):
+            if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.png'):
                 wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
                 wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
                 wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
                 wallets_plot_data.append(wallet_plot_data)
                 if wallets_plot_data:
                     save_plot_wallets.delay(wallets_plot_data, wallets_values, name, cw.stock_date, cw.username)
-                cw.del_prev_plot_user(wallet_start_date, cw.today, current_user.username, name)
+                    del_prev_plot_user.delay(wallet_start_date, cw.today, current_user.username, name)
     context = {
         "stock_date" : cw.stock_date,
         "user_wallets" : cw.user_wallets,
@@ -125,8 +124,8 @@ def show_wallets():
     if n:
         UsersActions.query.filter_by(name=n).delete()
         db.session.commit()
-        os.remove(f'static/{cw.stock_date}_{current_user.username}_{n}.jpg')
-        os.remove(f'static/{cw.stock_date}_{current_user.username}_all.jpg')
+        os.remove(f'static/{cw.stock_date}_{current_user.username}_{n}.png')
+        os.remove(f'static/{cw.stock_date}_{current_user.username}_all.png')
         return redirect(url_for('show_wallets'))
     context = {
         "stock_date" : cw.stock_date,

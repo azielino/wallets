@@ -5,6 +5,8 @@ import requests
 import csv
 from db_creator import init_db
 import matplotlib.pyplot as plt
+import os
+from datetime import timedelta
 
 celery = Celery(
     'tasks',
@@ -39,6 +41,28 @@ def update_db(update_date, user_stock, username):
             )
         db.session.add(stock)
     db.session.commit()
+
+@celery.task
+def del_prev_plot_all(start_date, date, username):
+    date_str = str(date)
+    if os.path.exists(f'static/{date_str}_{username}_all.png'):
+        os.remove(f'static/{date_str}_{username}_all.png')
+    while date_str != start_date:
+        date -= timedelta(days=1)
+        date_str = str(date)
+        if os.path.exists(f'static/{date_str}_{username}_all.png'):
+            os.remove(f'static/{date_str}_{username}_all.png')
+
+@celery.task
+def del_prev_plot_user(start_date, date, username, name):
+    if os.path.exists(f'static/{start_date}_{username}_{name}.png'):
+        os.remove(f'static/{start_date}_{username}_{name}.png')
+    date_str = str(date)
+    while date_str != start_date:
+        date -= timedelta(days=1)
+        date_str = str(date)
+        if os.path.exists(f'static/{date_str}_{username}_{name}.png'):
+            os.remove(f'static/{date_str}_{username}_{name}.png')
 
 @celery.task(autoretry_for=(Exception,), default_retry_delay=60)
 def get_AV_price(AV_api_url, update_date):

@@ -77,26 +77,6 @@ class Wallet:
             return max(list(stock_dates))
         return '0000-00-00'
 
-    def del_prev_plot_all(self, start_date, date, username):
-        date_str = str(date)
-        if os.path.exists(f'static/{date_str}_{username}_all.jpg'):
-            os.remove(f'static/{date_str}_{username}_all.jpg')
-        while date_str != start_date:
-            date -= timedelta(days=1)
-            date_str = str(date)
-            if os.path.exists(f'static/{date_str}_{username}_all.jpg'):
-                os.remove(f'static/{date_str}_{username}_all.jpg')
-
-    def del_prev_plot_user(self, start_date, date, username, name):
-        if os.path.exists(f'static/{start_date}_{username}_{name}.jpg'):
-            os.remove(f'static/{start_date}_{username}_{name}.jpg')
-        date_str = str(date)
-        while date_str != start_date:
-            date -= timedelta(days=1)
-            date_str = str(date)
-            if os.path.exists(f'static/{date_str}_{username}_{name}.jpg'):
-                os.remove(f'static/{date_str}_{username}_{name}.jpg')
-
     def set_user_symbols(self):
         user_symbols = set()
         if self.user_actions:
