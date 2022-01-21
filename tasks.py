@@ -6,7 +6,7 @@ import csv
 from db_creator import init_db
 import matplotlib.pyplot as plt
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 celery = Celery(
     'tasks',
@@ -16,7 +16,7 @@ celery = Celery(
 
 Users, Stock, UsersActions, db = init_db(flask_app)
 
-AV_KEY = 'api_key'
+AV_KEY = api_key
 
 @celery.task
 def download_AV_stock_symbols():
@@ -43,26 +43,20 @@ def update_db(update_date, user_stock, username):
     db.session.commit()
 
 @celery.task
-def del_prev_plot_all(start_date, date, username):
+def del_prev_plots(start_date, username, name):
+    date = datetime.today().date() - timedelta(days=1)
     date_str = str(date)
+    if os.path.exists(f'static/{start_date}_{username}_{name}.png'):
+        os.remove(f'static/{start_date}_{username}_{name}.png')
     if os.path.exists(f'static/{date_str}_{username}_all.png'):
         os.remove(f'static/{date_str}_{username}_all.png')
     while date_str != start_date:
         date -= timedelta(days=1)
         date_str = str(date)
-        if os.path.exists(f'static/{date_str}_{username}_all.png'):
-            os.remove(f'static/{date_str}_{username}_all.png')
-
-@celery.task
-def del_prev_plot_user(start_date, date, username, name):
-    if os.path.exists(f'static/{start_date}_{username}_{name}.png'):
-        os.remove(f'static/{start_date}_{username}_{name}.png')
-    date_str = str(date)
-    while date_str != start_date:
-        date -= timedelta(days=1)
-        date_str = str(date)
         if os.path.exists(f'static/{date_str}_{username}_{name}.png'):
             os.remove(f'static/{date_str}_{username}_{name}.png')
+        if os.path.exists(f'static/{date_str}_{username}_all.png'):
+            os.remove(f'static/{date_str}_{username}_all.png')
 
 @celery.task(autoretry_for=(Exception,), default_retry_delay=60)
 def get_AV_price(AV_api_url, update_date):

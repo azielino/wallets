@@ -1,7 +1,7 @@
 from flask_creator import flask_app
 from flask import render_template, redirect, url_for, request
 from tasks import download_AV_stock_symbols, get_AV_stock, update_db
-from tasks import save_plot_all, save_plot_wallets, del_prev_plot_all, del_prev_plot_user
+from tasks import save_plot_all, save_plot_wallets, del_prev_plots
 from tasks import Users, Stock, UsersActions, db
 from definitons import Wallet, LoginForm, RegisterForm, bcrypt
 from datetime import datetime, timedelta
@@ -54,7 +54,6 @@ def home():
             all_start_date = cw.user_actions[0].start_date
             all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
             save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
-            del_prev_plot_all.delay(all_start_date, cw.today, current_user.username)
         for name in cw.user_wallets:
             if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.png'):
                 wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
@@ -63,7 +62,7 @@ def home():
                 wallets_plot_data.append(wallet_plot_data)
                 if wallets_plot_data:
                     save_plot_wallets.delay(wallets_plot_data, wallets_values, name, cw.stock_date, cw.username)
-                    del_prev_plot_user.delay(wallet_start_date, cw.today, current_user.username, name)
+                    del_prev_plots.delay(wallet_start_date, current_user.username, name)
     context = {
         "stock_date" : cw.stock_date,
         "user_wallets" : cw.user_wallets,
