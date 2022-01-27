@@ -1,7 +1,7 @@
 from flask_creator import flask_app
 from flask import render_template, redirect, url_for, request
 from tasks import download_AV_stock_symbols, get_AV_stock, update_db
-from tasks import save_plot_all, save_plot_wallets, del_prev_plots
+from tasks import save_plot_all, save_plot_wallets
 from tasks import Users, Stock, UsersActions, db
 from definitons import Wallet, LoginForm, RegisterForm, bcrypt
 from datetime import datetime, timedelta
@@ -43,40 +43,38 @@ def logout():
 @login_required
 def home():
     cw = Wallet(current_user.username)
-    all_values = {}
-    wallets_values = {}
-    wallets_plot_data = []
-    stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
-    stock = Stock.query.all()
-    if stock and cw.stock_date != '0000-00-00':
-        if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_all.png'):
-            all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
-            all_start_date = cw.user_actions[0].start_date
-            all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
-            save_plot_all.delay(all_plot_data, all_values, cw.stock_date, cw.username)
-        for name in cw.user_wallets:
-            if not os.path.exists(f'static/{cw.stock_date}_{cw.username}_{name}.png'):
-                wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
-                wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
-                wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
-                wallets_plot_data.append(wallet_plot_data)
-                if wallets_plot_data:
-                    save_plot_wallets.delay(wallets_plot_data, wallets_values, name, cw.stock_date, cw.username)
-                    del_prev_plots.delay(wallet_start_date, current_user.username, name)
-    context = {
-        "stock_date" : cw.stock_date,
-        "user_wallets" : cw.user_wallets,
-        "user" : current_user.username,
-    }
-    if request.method == "POST":
+    # if request.method == "POST":
+    update_date = str(datetime.today().date() - timedelta(days=1))
+    if cw.stock_date != update_date:
         isoweekdays = [2, 3, 4, 5, 6]
-        update_date = str(datetime.today().date() - timedelta(days=1))
         if datetime.isoweekday(datetime.today()) in isoweekdays and cw.symbols_to_update:
             user_stock = get_AV_stock.delay(cw.symbols_to_update, update_date).wait()
             for symbol, price in user_stock.items():
                 user_stock[symbol] = price.wait()
             if user_stock:
                 update_db.delay(update_date, user_stock, current_user.username)
+    all_values = {}
+    wallets_values = {}
+    wallets_plot_data = []
+    stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
+    stock = Stock.query.all()
+    if stock and cw.stock_date != '0000-00-00':
+        for name in cw.user_wallets:
+            wallets_values[f'{name}'] = cw.get_wallet_values(cw.user_wallets[f'{name}'], stock_by_date)               
+            wallet_start_date = UsersActions.query.filter_by(name=name).first().start_date
+            wallet_plot_data = cw.wallet_plot_data(cw.user_wallets[f'{name}'], wallet_start_date)
+            wallets_plot_data.append(wallet_plot_data)
+            if wallets_plot_data:
+                save_plot_wallets.delay(wallets_plot_data, wallets_values, name, cw.username)
+        all_values = cw.get_wallet_values(cw.user_actions, stock_by_date)
+        all_start_date = cw.user_actions[0].start_date
+        all_plot_data = cw.wallet_plot_data(cw.user_actions, all_start_date)
+        save_plot_all.delay(all_plot_data, all_values, cw.username)
+    context = {
+        "stock_date" : cw.stock_date,
+        "user_wallets" : cw.user_wallets,
+        "user" : current_user.username,
+    }
     return render_template("home.html", context=context)
 
 @flask_app.route("/create_wallet/", methods=["GET", "POST"])
@@ -133,5 +131,5 @@ def show_wallets():
     }
     return render_template("show.html", context=context)
 
-# if __name__ == '__main__':
-#     flask_app.run(debug=True)
+if __name__ == '__main__':
+    flask_app.run(debug=True)

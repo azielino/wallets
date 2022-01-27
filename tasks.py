@@ -42,22 +42,6 @@ def update_db(update_date, user_stock, username):
         db.session.add(stock)
     db.session.commit()
 
-@celery.task
-def del_prev_plots(start_date, username, name):
-    date = datetime.today().date() - timedelta(days=1)
-    date_str = str(date)
-    if os.path.exists(f'static/{start_date}_{username}_{name}.png'):
-        os.remove(f'static/{start_date}_{username}_{name}.png')
-    if os.path.exists(f'static/{date_str}_{username}_all.png'):
-        os.remove(f'static/{date_str}_{username}_all.png')
-    while date_str != start_date:
-        date -= timedelta(days=1)
-        date_str = str(date)
-        if os.path.exists(f'static/{date_str}_{username}_{name}.png'):
-            os.remove(f'static/{date_str}_{username}_{name}.png')
-        if os.path.exists(f'static/{date_str}_{username}_all.png'):
-            os.remove(f'static/{date_str}_{username}_all.png')
-
 @celery.task(autoretry_for=(Exception,), default_retry_delay=60)
 def get_AV_price(AV_api_url, update_date):
     return requests.get(AV_api_url).json()['Time Series (Daily)'][update_date]['4. close']
@@ -71,17 +55,13 @@ def get_AV_stock(symbols_to_update, update_date):
     return user_stock
 
 @celery.task
-def save_plot_all(plot_data, values, stock_date, username):
+def save_plot_all(plot_data, values, username):
     plt.style.use('dark_background')
     plt.style.use('./static/presentation.mplstyle')
     fig, ax = plt.subplots()
     with plt.style.context('dark_background'):
         ax.plot(plot_data[0], plot_data[1], 'b')
         ax.axis('off')
-        # ax.set_ylim(min(plot_data[1]), max(plot_data[1])*2)
-        # ax.yaxis.set_major_formatter('${x:1.1f}')
-        # ax.yaxis.set_tick_params(which='major', labelcolor='green',
-        #     labelleft=True, labelright=False)
     fig.text(0.05, 0.93, f'total', color='white', size=25,  fontweight='bold')
     fig.text(0.80, 0.93, f'''{values['wallet_perc']} %''', 
         color='white', size=15, fontweight='bold')
@@ -97,10 +77,10 @@ def save_plot_all(plot_data, values, stock_date, username):
     else: 
         fig.text(0.5, 0.5, f'''{values['wallet_profit']} $''', 
             color='orangered', fontweight='bold', ha='center', va='center', size=50)
-    fig.savefig(f'static/{stock_date}_{username}_all.png')
+    fig.savefig(f'static/{username}_all.png')
 
 @celery.task
-def save_plot_wallets(wallets_data, values, name, stock_date, username):
+def save_plot_wallets(wallets_data, values, name, username):
     for data in wallets_data:
         for i in range(1, len(data[0])-1):
             data[0][i] = i
@@ -110,10 +90,6 @@ def save_plot_wallets(wallets_data, values, name, stock_date, username):
         with plt.style.context('dark_background'):
             ax.plot(data[0], data[1], 'b')
             ax.axis('off')
-            # ax.set_ylim(min(data[1]), max(data[1])*2)
-            # ax.yaxis.set_major_formatter('${x:1.1f}')
-            # ax.yaxis.set_tick_params(which='major', labelcolor='green',
-            #     labelleft=True, labelright=False)
         fig.text(0.05, 0.93, f'{name}', color='white', size=25,  fontweight='bold')
         fig.text(0.75, 0.93, f'''{values[f'{name}']['wallet_perc']} %''', 
             color='white', size=15, fontweight='bold')
@@ -129,4 +105,4 @@ def save_plot_wallets(wallets_data, values, name, stock_date, username):
         else: 
             fig.text(0.5, 0.5, f'''{values[f'{name}']['wallet_profit']} $''', 
             color='orangered', fontweight='bold', ha='center', va='center', size=50)
-        fig.savefig(f'static/{stock_date}_{username}_{name}.png')
+        fig.savefig(f'static/{username}_{name}.png')

@@ -37,7 +37,7 @@
                 <div class="row">
                     <div class="col-3">
                         <div class="container" 
-                        style='height: 350px; background-image: url(/static/{{ context.stock_date }}_{{ context.user }}_all.png); 
+                        style='height: 350px; background-image: url(/static/{{ context.user }}_all.png); 
                         background-size:contain; background-repeat:no-repeat; background-position:center center;'>
                         </div><br>
                         <div class="container bg-info bg-opacity-50 rounded">
@@ -53,7 +53,7 @@
                         <div class="row">
                             {% for wallet in context.user_wallets %}
                                 <div class="col-4 col-sm-4" 
-                                style='height: 350px; background-image: url(/static/{{ context.stock_date }}_{{ context.user }}_{{ wallet }}.png); 
+                                style='height: 350px; background-image: url(/static/{{ context.user }}_{{ wallet }}.png); 
                                 background-size:contain; background-repeat:no-repeat; background-position:center center;'>
                                 </div>
                             {% endfor %}
