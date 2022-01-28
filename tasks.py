@@ -29,30 +29,48 @@ def download_AV_stock_symbols():
         del my_list[0]
         return [row[0] for row in my_list]
 
-@celery.task
-def update_db(update_date, user_stock, username):
-    for symbol, price in user_stock.items():
-        print(f'((({symbol}, {price})))')
-        stock = Stock(
-            symbol = symbol,
-            price = price,
-            date = update_date,
-            user = username
-            )
-        db.session.add(stock)
-    db.session.commit()
-
 @celery.task(autoretry_for=(Exception,), default_retry_delay=60)
-def get_AV_price(AV_api_url, update_date):
-    return requests.get(AV_api_url).json()['Time Series (Daily)'][update_date]['4. close']
-
-@celery.task
-def get_AV_stock(symbols_to_update, update_date):
-    user_stock = {}
+def update(symbols_to_update, update_date, username):
+    updated_symbols = [item.symbol for item in Stock.query.filter_by(date=update_date).all()]
     for symbol in symbols_to_update:
-        AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
-        user_stock[symbol] = get_AV_price.delay(AV_api_url, update_date)
-    return user_stock
+        if symbol not in updated_symbols:
+            AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
+            price = requests.get(AV_api_url).json()['Time Series (Daily)'][update_date]['4. close']
+            print(f'((({symbol}, {price})))')
+            stock = Stock(
+                symbol = symbol,
+                price = price,
+                date = update_date,
+                user = username
+                )
+            db.session.add(stock)
+        db.session.commit()
+
+
+# @celery.task
+# def update_db(update_date, user_stock, username):
+#     for symbol, price in user_stock.items():
+#         print(f'((({symbol}, {price})))')
+#         stock = Stock(
+#             symbol = symbol,
+#             price = price,
+#             date = update_date,
+#             user = username
+#             )
+#         db.session.add(stock)
+#     db.session.commit()
+# 
+# @celery.task(autoretry_for=(Exception,), default_retry_delay=60)
+# def get_AV_price(AV_api_url, update_date):
+#     return requests.get(AV_api_url).json()['Time Series (Daily)'][update_date]['4. close']
+# 
+# @celery.task
+# def get_AV_stock(symbols_to_update, update_date):
+#     user_stock = {}
+#     for symbol in symbols_to_update:
+#         AV_api_url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={AV_KEY}'
+#         user_stock[symbol] = get_AV_price.delay(AV_api_url, update_date)
+#     return user_stock
 
 @celery.task
 def save_plot_all(plot_data, values, username):
