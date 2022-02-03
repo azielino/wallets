@@ -54,7 +54,7 @@ def home():
             isoweekdays = [2, 3, 4, 5, 6]
             if datetime.isoweekday(datetime.today()) in isoweekdays and cw.symbols_to_update:
                 update.delay(cw.symbols_to_update, update_date, current_user.username)
-    if cw.stock_date != '0000-00-00'and cw.stock_date != update_date:
+    if cw.stock_date != '0000-00-00':
         wallets_values = {}
         wallets_plot_data = []
         stock_by_date = Stock.query.filter_by(date=cw.stock_date).all()
